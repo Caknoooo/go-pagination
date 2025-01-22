@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"go-pagination"
+	"github.com/Caknoooo/go-pagination"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/sqlite"

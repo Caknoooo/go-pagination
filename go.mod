@@ -1,4 +1,4 @@
-module go-pagination
+module github.com/Caknoooo/go-pagination
 
 go 1.22.1
 
