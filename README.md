@@ -24,13 +24,13 @@ main.go
 package main
 
 import (
-	"go-pagination/pagination"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"github.com/Caknoooo/go-pagination"
 )
 
 type user struct {
@@ -48,7 +48,7 @@ func seedUser(db *gorm.DB) {
 }
 
 func main() {
-	dsn := "root:<password>@tcp(localhost:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local"
+	dsn := "root:root@tcp(localhost:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local"
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		panic("failed to connect database")
@@ -58,8 +58,6 @@ func main() {
 	seedUser(db)
 
 	r := gin.Default()
-
-	paginator := pagination.NewPagination(db)
 
 	r.GET("/users", func(c *gin.Context) {
 		var req pagination.PaginationRequest
@@ -74,7 +72,7 @@ func main() {
 		db.Model(&user{}).Select("id").Count(&totalUsers)
 
 		// Generate pagination links and meta
-		resp, err := paginator.GeneratePaginationLinks(c, req, int(totalUsers))
+		resp, err := pagination.GeneratePaginationLinks(c, req, int(totalUsers))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate pagination links"})
 			return
