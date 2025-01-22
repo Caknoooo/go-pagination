@@ -8,21 +8,12 @@ import (
 	"github.com/Caknoooo/go-pagination"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 func TestInitPagination(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("could not connect to the database: %v", err)
-	}
-
-	paginator := pagination.NewPagination(db)
-
 	req := pagination.PaginationRequest{Size: 0, Number: 0}
 	lengthModel := 100
-	result := paginator.InitPagiantion(req, lengthModel)
+	result := pagination.InitPagiantion(req, lengthModel)
 
 	if result.Size != pagination.DEFAULT_PAGE_SIZE {
 		t.Errorf("expected %v, got %v", pagination.DEFAULT_PAGE_SIZE, result.Size)
@@ -41,7 +32,7 @@ func TestInitPagination(t *testing.T) {
 	}
 
 	req = pagination.PaginationRequest{Size: 20, Number: 2}
-	result = paginator.InitPagiantion(req, lengthModel)
+	result = pagination.InitPagiantion(req, lengthModel)
 
 	if result.Size != 20 {
 		t.Errorf("expected %v, got %v", 20, result.Size)
@@ -61,20 +52,13 @@ func TestInitPagination(t *testing.T) {
 }
 
 func TestGeneratePaginationLinks(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("could not connect to the database: %v", err)
-	}
-
-	paginator := pagination.NewPagination(db)
-
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request, _ = http.NewRequest("GET", "/test?"+pagination.DEFAULT_PAGE_SIZE_QUERY+"=10&"+pagination.DEFAULT_PAGE_NUMBER_QUERY+"=2", nil)
 
 	req := pagination.PaginationRequest{Size: 10, Number: 2}
 	lengthModel := 100
-	resp, err := paginator.GeneratePaginationLinks(c, req, lengthModel)
+	resp, err := pagination.GeneratePaginationLinks(c, req, lengthModel)
 
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -107,20 +91,13 @@ func TestGeneratePaginationLinks(t *testing.T) {
 }
 
 func TestGeneratePaginationLinksWithEdgeCases(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("could not connect to the database: %v", err)
-	}
-
-	paginator := pagination.NewPagination(db)
-
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request, _ = http.NewRequest("GET", "/test?"+pagination.DEFAULT_PAGE_SIZE_QUERY+"=10&"+pagination.DEFAULT_PAGE_NUMBER_QUERY+"=1", nil)
 
 	req := pagination.PaginationRequest{Size: 10, Number: 1}
 	lengthModel := 5
-	resp, err := paginator.GeneratePaginationLinks(c, req, lengthModel)
+	resp, err := pagination.GeneratePaginationLinks(c, req, lengthModel)
 
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)

@@ -5,17 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
-
-type pagination struct {
-	db *gorm.DB
-}
-
-type Pagination interface {
-	InitPagiantion(req PaginationRequest, lengthModel int) InitPaginationResponse
-	GeneratePaginationLinks(c *gin.Context, req PaginationRequest, lengthModel int) (PaginationResponse, error)
-}
 
 type PaginationRequest struct {
 	Size   int `form:"page[size]"`
@@ -49,12 +39,6 @@ type InitPaginationResponse struct {
 	To     *int `json:"to"`
 }
 
-func NewPagination(db *gorm.DB) Pagination {
-	return &pagination{
-		db: db,
-	}
-}
-
 const (
 	DEFAULT_PAGE_SIZE   = 10
 	DEFAULT_PAGE_NUMBER = 1
@@ -63,7 +47,7 @@ const (
 	DEFAULT_PAGE_NUMBER_QUERY = "page[number]"
 )
 
-func (p *pagination) InitPagiantion(req PaginationRequest, lengthModel int) InitPaginationResponse {
+func InitPagiantion(req PaginationRequest, lengthModel int) InitPaginationResponse {
 	if req.Size == 0 {
 		req.Size = DEFAULT_PAGE_SIZE
 	}
@@ -91,8 +75,8 @@ func (p *pagination) InitPagiantion(req PaginationRequest, lengthModel int) Init
 }
 
 // LengthModel is the total length of the model currently
-func (p *pagination) GeneratePaginationLinks(c *gin.Context, req PaginationRequest, lengthModel int) (PaginationResponse, error) {
-	request := p.InitPagiantion(req, lengthModel)
+func GeneratePaginationLinks(c *gin.Context, req PaginationRequest, lengthModel int) (PaginationResponse, error) {
+	request := InitPagiantion(req, lengthModel)
 
 	baseURL := c.Request.URL.Scheme + "://" + c.Request.Host + c.Request.URL.Path
 
