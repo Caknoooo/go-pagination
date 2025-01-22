@@ -1,5 +1,9 @@
 # go-pagination
 
+```bash
+go get "github.com/Caknoooo/go-pagination"
+```
+
 # testing with gin
 docker-compose.yml
 ```docker
