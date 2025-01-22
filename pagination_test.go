@@ -1,20 +1,16 @@
 package pagination_test
 
 import (
-	"go-pagination"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"go-pagination"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
-
-func setupRouter() *gin.Engine {
-	r := gin.Default()
-	return r
-}
 
 func TestInitPagination(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
