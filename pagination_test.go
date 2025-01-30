@@ -1,124 +1,143 @@
-package pagination_test
+package pagination
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
-	"github.com/Caknoooo/go-pagination"
-
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
-func TestInitPagination(t *testing.T) {
-	req := pagination.PaginationRequest{Size: 0, Number: 0}
-	lengthModel := 100
-	result := pagination.InitPagination(req, lengthModel)
-
-	if result.Size != pagination.DEFAULT_PAGE_SIZE {
-		t.Errorf("expected %v, got %v", pagination.DEFAULT_PAGE_SIZE, result.Size)
-	}
-	if result.Number != pagination.DEFAULT_PAGE_NUMBER {
-		t.Errorf("expected %v, got %v", pagination.DEFAULT_PAGE_NUMBER, result.Number)
-	}
-	if result.Offset != 0 {
-		t.Errorf("expected %v, got %v", 0, result.Offset)
-	}
-	if *result.From != 1 {
-		t.Errorf("expected %v, got %v", 1, *result.From)
-	}
-	if *result.To != 10 {
-		t.Errorf("expected %v, got %v", 10, *result.To)
-	}
-
-	req = pagination.PaginationRequest{Size: 20, Number: 2}
-	result = pagination.InitPagination(req, lengthModel)
-
-	if result.Size != 20 {
-		t.Errorf("expected %v, got %v", 20, result.Size)
-	}
-	if result.Number != 2 {
-		t.Errorf("expected %v, got %v", 2, result.Number)
-	}
-	if result.Offset != 20 {
-		t.Errorf("expected %v, got %v", 20, result.Offset)
-	}
-	if *result.From != 21 {
-		t.Errorf("expected %v, got %v", 21, *result.From)
-	}
-	if *result.To != 40 {
-		t.Errorf("expected %v, got %v", 40, *result.To)
-	}
+type User struct {
+	gorm.Model
+	Name  string
+	Email string
 }
 
-func TestGeneratePaginationLinks(t *testing.T) {
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request, _ = http.NewRequest("GET", "/test?"+pagination.DEFAULT_PAGE_SIZE_QUERY+"=10&"+pagination.DEFAULT_PAGE_NUMBER_QUERY+"=2", nil)
-
-	req := pagination.PaginationRequest{Size: 10, Number: 2}
-	lengthModel := 100
-	resp, err := pagination.GeneratePaginationLinks(c, req, lengthModel)
-
+func setupDB() *gorm.DB {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if resp.Meta.CurrentPage != 2 {
-		t.Errorf("expected %v, got %v", 2, resp.Meta.CurrentPage)
-	}
-	if resp.Meta.PerPage != 10 {
-		t.Errorf("expected %v, got %v", 10, resp.Meta.PerPage)
-	}
-	if *resp.Meta.From != 11 {
-		t.Errorf("expected %v, got %v", 11, *resp.Meta.From)
-	}
-	if *resp.Meta.To != 20 {
-		t.Errorf("expected %v, got %v", 20, *resp.Meta.To)
+		panic("Gagal koneksi ke database")
 	}
 
-	if resp.Links.First == "" {
-		t.Error("expected first link, got empty string")
-	}
-	if resp.Links.Last == "" {
-		t.Error("expected last link, got empty string")
-	}
-	if resp.Links.Next == nil {
-		t.Error("expected next link, got nil")
-	}
-	if resp.Links.Prev == nil {
-		t.Error("expected prev link, got nil")
-	}
+	// Auto migrate model User
+	db.AutoMigrate(&User{})
+	return db
 }
 
-func TestGeneratePaginationLinksWithEdgeCases(t *testing.T) {
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request, _ = http.NewRequest("GET", "/test?"+pagination.DEFAULT_PAGE_SIZE_QUERY+"=10&"+pagination.DEFAULT_PAGE_NUMBER_QUERY+"=1", nil)
+func setupGinContext(queryParams map[string]string) *gin.Context {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = &http.Request{
+		URL:    &url.URL{},
+		Header: make(http.Header),
+	}
 
-	req := pagination.PaginationRequest{Size: 10, Number: 1}
-	lengthModel := 5
-	resp, err := pagination.GeneratePaginationLinks(c, req, lengthModel)
+	q := c.Request.URL.Query()
+	for key, value := range queryParams {
+		q.Add(key, value)
+	}
+	c.Request.URL.RawQuery = q.Encode()
 
+	return c
+}
+
+func TestNew(t *testing.T) {
+	db := setupDB()
+	c := setupGinContext(map[string]string{
+		"page[size]":   "10",
+		"page[number]": "2",
+	})
+
+	p, err := New(db, c)
+	assert.NoError(t, err)
+	assert.Equal(t, 10, p.Req.Size)
+	assert.Equal(t, 2, p.Req.Number)
+}
+
+func TestQuery(t *testing.T) {
+	db := setupDB()
+	c := setupGinContext(map[string]string{
+		"page[size]":   "5",
+		"page[number]": "1",
+	})
+
+	db.Create(&User{Name: "User 1", Email: "user1@example.com"})
+	db.Create(&User{Name: "User 2", Email: "user2@example.com"})
+	db.Create(&User{Name: "User 3", Email: "user3@example.com"})
+	db.Create(&User{Name: "User 4", Email: "user4@example.com"})
+	db.Create(&User{Name: "User 5", Email: "user5@example.com"})
+
+	p, _ := New(db, c)
+	query := p.Query()
+
+	var result []User
+	if err := query.Find(&result).Error; err != nil {
+		t.Errorf("Query failed: %v", err)
+	}
+
+	assert.Equal(t, 5, len(result))
+}
+
+func TestCount(t *testing.T) {
+	db := setupDB()
+	c := setupGinContext(map[string]string{
+		"page[size]":   "5",
+		"page[number]": "1",
+	})
+
+	db.Create(&User{Name: "User 1", Email: "user1@example.com"})
+	db.Create(&User{Name: "User 2", Email: "user2@example.com"})
+
+	p, _ := New(db, c)
+	err := p.Count(&User{})
+	assert.NoError(t, err)
+	assert.Equal(t, int64(2), p.TotalItems)
+}
+
+func TestGenerateResponse(t *testing.T) {
+	db := setupDB()
+	c := setupGinContext(map[string]string{
+		"page[size]":   "5",
+		"page[number]": "1",
+	})
+
+	db.Create(&User{Name: "User 1", Email: "user1@example.com"})
+	db.Create(&User{Name: "User 2", Email: "user2@example.com"})
+
+	p, _ := New(db, c)
+	_ = p.Count(&User{})
+	response := p.GenerateResponse(c)
+
+	t.Log("First URL:", response.Links.First)
+	t.Log("Last URL:", response.Links.Last)
+
+	assert.Equal(t, 1, response.Meta.CurrentPage)
+	assert.Equal(t, 5, response.Meta.PerPage)
+	assert.Equal(t, 1, *response.Meta.From)
+	assert.Equal(t, 2, *response.Meta.To)
+
+	firstLink := generateLink(c.Request.URL.String(), 1, 5)
+	lastLink := generateLink(c.Request.URL.String(), 1, 5)
+
+	assert.Contains(t, response.Links.First, firstLink)
+	assert.Contains(t, response.Links.Last, lastLink)
+	assert.Nil(t, response.Links.Prev)
+	assert.Nil(t, response.Links.Next)
+}
+
+func generateLink(baseURL string, pageNumber int, pageSize int) string {
+	u, err := url.Parse(baseURL)
 	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+		panic(err)
 	}
-	if resp.Meta.CurrentPage != 1 {
-		t.Errorf("expected %v, got %v", 1, resp.Meta.CurrentPage)
-	}
-	if *resp.Meta.To != 5 {
-		t.Errorf("expected %v, got %v", 5, *resp.Meta.To)
-	}
-
-	if resp.Links.First == "" {
-		t.Error("expected first link, got empty string")
-	}
-	if resp.Links.Last == "" {
-		t.Error("expected last link, got empty string")
-	}
-	if resp.Links.Next != nil {
-		t.Error("expected next link to be nil")
-	}
-	if resp.Links.Prev != nil {
-		t.Error("expected prev link to be nil")
-	}
+	q := u.Query()
+	q.Set("page[number]", fmt.Sprintf("%d", pageNumber))
+	q.Set("page[size]", fmt.Sprintf("%d", pageSize))
+	u.RawQuery = q.Encode()
+	return u.String()
 }

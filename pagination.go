@@ -1,10 +1,25 @@
 package pagination
 
 import (
+	"net/url"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
+
+const (
+	DefaultPageSize   = 10
+	DefaultPageNumber = 1
+	PageSizeQuery     = "page[size]"
+	PageNumberQuery   = "page[number]"
+)
+
+type Pagination struct {
+	DB         *gorm.DB
+	Req        PaginationRequest
+	TotalItems int64
+}
 
 type PaginationRequest struct {
 	Size   int `form:"page[size]"`
@@ -21,8 +36,6 @@ type MetaResponse struct {
 	PerPage     int  `json:"per_page"`
 	From        *int `json:"from"`
 	To          *int `json:"to"`
-	Total       int  `json:"total"`
-	LastPage    int  `json:"last_page"`
 }
 
 type PaginationLinks struct {
@@ -32,98 +45,92 @@ type PaginationLinks struct {
 	Prev  *string `json:"prev"`
 }
 
-type InitPaginationResponse struct {
-	Size   int  `json:"size"`
-	Number int  `json:"number"`
-	Offset int  `json:"offset"`
-	From   *int `json:"from"`
-	To     *int `json:"to"`
-}
+func New(db *gorm.DB, c *gin.Context) (*Pagination, error) {
+	var req PaginationRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		return nil, err
+	}
 
-const (
-	DEFAULT_PAGE_SIZE   = 10
-	DEFAULT_PAGE_NUMBER = 1
-
-	DEFAULT_PAGE_SIZE_QUERY   = "page[size]"
-	DEFAULT_PAGE_NUMBER_QUERY = "page[number]"
-)
-
-func InitPagination(req PaginationRequest, lengthModel int) InitPaginationResponse {
 	if req.Size <= 0 {
-		req.Size = DEFAULT_PAGE_SIZE
+		req.Size = DefaultPageSize
 	}
-
 	if req.Number <= 0 {
-		req.Number = DEFAULT_PAGE_NUMBER
+		req.Number = DefaultPageNumber
 	}
 
-	offset := (req.Number - 1) * req.Size
-	from := offset + 1
-	to := offset + req.Size
-
-	if from > lengthModel {
-		from = lengthModel
-	}
-
-	if to > lengthModel {
-		to = lengthModel
-	}
-
-	return InitPaginationResponse{
-		Size:   req.Size,
-		Number: req.Number,
-		Offset: offset,
-		From:   &from,
-		To:     &to,
-	}
+	return &Pagination{
+		DB:  db,
+		Req: req,
+	}, nil
 }
 
-func GeneratePaginationLinks(c *gin.Context, req PaginationRequest, lengthModel int) (PaginationResponse, error) {
-	request := InitPagination(req, lengthModel)
-	lastPage := (lengthModel + request.Size - 1) / request.Size
+func (p *Pagination) Query() *gorm.DB {
+	offset := (p.Req.Number - 1) * p.Req.Size
+	return p.DB.Offset(offset).Limit(p.Req.Size)
+}
 
-	queryParams := c.Request.URL.Query()
-	queryParams.Set("page[size]", strconv.Itoa(request.Size))
+func (p *Pagination) Count(model interface{}) error {
+	return p.DB.Model(model).Count(&p.TotalItems).Error
+}
 
-	baseURL := c.Request.URL.Scheme + "://" + c.Request.Host + c.Request.URL.Path
+func (p *Pagination) GenerateResponse(c *gin.Context) PaginationResponse {
+	baseURL := SetBaseURL(c)
+	queryParams := url.Values{}
 
-	queryParams.Set("page[number]", strconv.Itoa(1))
+	// Calculate metadata
+	offset := (p.Req.Number - 1) * p.Req.Size
+	from := offset + 1
+	to := offset + p.Req.Size
+	if to > int(p.TotalItems) {
+		to = int(p.TotalItems)
+	}
+
+	queryParams.Set(PageSizeQuery, strconv.Itoa(p.Req.Size))
+	queryParams.Set(PageNumberQuery, strconv.Itoa(DefaultPageNumber))
 	first := baseURL + "?" + queryParams.Encode()
 
-	queryParams.Set("page[number]", strconv.Itoa(lastPage))
+	lastPage := (int(p.TotalItems) + p.Req.Size - 1) / p.Req.Size
+	queryParams.Set(PageNumberQuery, strconv.Itoa(lastPage))
 	last := baseURL + "?" + queryParams.Encode()
 
-	var next *string
-	var prev *string
-
-	if request.Number > 1 {
-		queryParams.Set("page[number]", strconv.Itoa(request.Number-1))
+	var next, prev *string
+	if p.Req.Number > 1 {
+		queryParams.Set(PageNumberQuery, strconv.Itoa(p.Req.Number-1))
 		prevStr := baseURL + "?" + queryParams.Encode()
 		prev = &prevStr
 	}
-
-	if request.Number < lastPage {
-		queryParams.Set("page[number]", strconv.Itoa(request.Number+1))
+	if p.Req.Number < lastPage {
+		queryParams.Set(PageNumberQuery, strconv.Itoa(p.Req.Number+1))
 		nextStr := baseURL + "?" + queryParams.Encode()
 		next = &nextStr
 	}
 
-	meta := MetaResponse{
-		CurrentPage: request.Number,
-		PerPage:     request.Size,
-		From:        request.From,
-		To:          request.To,
-		Total:       lengthModel,
-		LastPage:    lastPage,
-	}
-
 	return PaginationResponse{
-		Meta: meta,
+		Meta: MetaResponse{
+			CurrentPage: p.Req.Number,
+			PerPage:     p.Req.Size,
+			From:        &from,
+			To:          &to,
+		},
 		Links: PaginationLinks{
 			First: first,
 			Last:  last,
 			Next:  next,
 			Prev:  prev,
 		},
-	}, nil
+	}
+}
+
+func SetBaseURL(c *gin.Context) string {
+	scheme := "http"
+	if c.Request.TLS != nil {
+		scheme = "https"
+	}
+
+	baseURL := scheme + "://" + c.Request.Host + c.Request.URL.Path
+	if c.Request.URL.RawQuery != "" {
+		baseURL = baseURL + "?" + c.Request.URL.RawQuery
+	}
+
+	return baseURL
 }
