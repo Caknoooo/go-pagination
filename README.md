@@ -108,6 +108,4 @@ func seedUsers(db *gorm.DB) {
 		db.Create(&user)
 	}
 }
-
-}
 ```
