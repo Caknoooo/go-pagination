@@ -28,72 +28,86 @@ main.go
 package main
 
 import (
+	"fmt"
+	"log"
 	"net/http"
-	"strconv"
+	"tested/pagination"
 
 	"github.com/gin-gonic/gin"
+
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"github.com/Caknoooo/go-pagination"
 )
 
-type user struct {
-	ID   int
-	Name string
-	Age  int
-}
-
-func seedUser(db *gorm.DB) {
-	for i := 1; i <= 50; i++ {
-		name := "user-" + strconv.Itoa(i)
-		age := i
-		db.Create(&user{Name: name, Age: age})
-	}
+type User struct {
+	ID    uint   `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
 }
 
 func main() {
-	dsn := "root:root@tcp(localhost:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local"
+	// Connect to database
+	dsn := "root:root@tcp(localhost:3306)/test22?charset=utf8mb4&parseTime=True&loc=Local"
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
-		panic("failed to connect database")
+		log.Fatal("Failed to connect to database: ", err)
 	}
 
-	db.AutoMigrate(&user{})
-	seedUser(db)
+	// Migrate User model to database
+	if err := db.AutoMigrate(&User{}); err != nil {
+		log.Fatal("Failed to migrate database: ", err)
+	}
 
+	// Seed initial users data
+	seedUsers(db)
+
+	// Setup Gin router
 	r := gin.Default()
 
+	// Define GET route for paginated users
 	r.GET("/users", func(c *gin.Context) {
-		var req pagination.PaginationRequest
-
-		err := c.ShouldBind(&req)
+		// Initialize pagination
+		p, err := pagination.New(db, c)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-			return
+			log.Fatal("Error creating pagination: ", err)
 		}
 
-		var totalUsers int64
-		db.Model(&user{}).Select("id").Count(&totalUsers)
-
-		// Generate pagination links and meta
-		resp, err := pagination.GeneratePaginationLinks(c, req, int(totalUsers))
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate pagination links"})
-			return
+		var users []User
+		// Query paginated data
+		if err := p.Query().Find(&users).Error; err != nil {
+			log.Fatal("Error querying database: ", err)
 		}
 
-		// Fetch the paginated users
-		var users []user
-		offset := (req.Number - 1) * req.Size
-		db.Offset(offset).Limit(req.Size).Find(&users)
+		// Count total items for pagination metadata
+		if err := p.Count(&User{}); err != nil {
+			log.Fatal("Error counting items: ", err)
+		}
 
+		// Generate and return paginated response
+		response := p.GenerateResponse(c)
 		c.JSON(http.StatusOK, gin.H{
 			"data":  users,
-			"meta":  resp.Meta,
-			"links": resp.Links,
+			"meta":  response.Meta,
+			"links": response.Links,
 		})
 	})
 
-	r.Run(":8080")
+	// Run the server
+	if err := r.Run(":8081"); err != nil {
+		log.Fatal("Failed to start server: ", err)
+	}
+}
+
+// Seed dummy users data
+func seedUsers(db *gorm.DB) {
+	for i := 1; i <= 50; i++ {
+		user := User{
+			Name:  fmt.Sprintf("User %d", i),
+			Email: fmt.Sprintf("user%d@example.com", i),
+		}
+		db.Create(&user)
+	}
+}
+
 }
 ```
