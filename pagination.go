@@ -1,7 +1,6 @@
 package pagination
 
 import (
-	"net/url"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -75,9 +74,9 @@ func (p *Pagination) Count(model interface{}) error {
 
 func (p *Pagination) GenerateResponse(c *gin.Context) PaginationResponse {
 	baseURL := SetBaseURL(c)
-	queryParams := url.Values{}
+	queryParams := c.Request.URL.Query()
 
-  queryParams.Del(PageSizeQuery)
+	queryParams.Del(PageSizeQuery)
 	queryParams.Del(PageNumberQuery)
 
 	offset := (p.Req.Number - 1) * p.Req.Size
@@ -130,9 +129,6 @@ func SetBaseURL(c *gin.Context) string {
 	}
 
 	baseURL := scheme + "://" + c.Request.Host + c.Request.URL.Path
-	if c.Request.URL.RawQuery != "" {
-		baseURL = baseURL + "?" + c.Request.URL.RawQuery
-	}
 
 	return baseURL
 }
