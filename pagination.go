@@ -77,7 +77,9 @@ func (p *Pagination) GenerateResponse(c *gin.Context) PaginationResponse {
 	baseURL := SetBaseURL(c)
 	queryParams := url.Values{}
 
-	// Calculate metadata
+  queryParams.Del(PageSizeQuery)
+	queryParams.Del(PageNumberQuery)
+
 	offset := (p.Req.Number - 1) * p.Req.Size
 	from := offset + 1
 	to := offset + p.Req.Size
