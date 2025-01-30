@@ -1,7 +1,6 @@
 package pagination
 
 import (
-	"net/url"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -22,6 +21,8 @@ type MetaResponse struct {
 	PerPage     int  `json:"per_page"`
 	From        *int `json:"from"`
 	To          *int `json:"to"`
+	Total       int  `json:"total"`
+	LastPage    int  `json:"last_page"`
 }
 
 type PaginationLinks struct {
@@ -47,19 +48,22 @@ const (
 	DEFAULT_PAGE_NUMBER_QUERY = "page[number]"
 )
 
-func InitPagiantion(req PaginationRequest, lengthModel int) InitPaginationResponse {
-	if req.Size == 0 {
+func InitPagination(req PaginationRequest, lengthModel int) InitPaginationResponse {
+	if req.Size <= 0 {
 		req.Size = DEFAULT_PAGE_SIZE
 	}
 
-	if req.Number == 0 {
+	if req.Number <= 0 {
 		req.Number = DEFAULT_PAGE_NUMBER
 	}
 
 	offset := (req.Number - 1) * req.Size
-
 	from := offset + 1
 	to := offset + req.Size
+
+	if from > lengthModel {
+		from = lengthModel
+	}
 
 	if to > lengthModel {
 		to = lengthModel
@@ -74,33 +78,32 @@ func InitPagiantion(req PaginationRequest, lengthModel int) InitPaginationRespon
 	}
 }
 
-// LengthModel is the total length of the model currently
 func GeneratePaginationLinks(c *gin.Context, req PaginationRequest, lengthModel int) (PaginationResponse, error) {
-	request := InitPagiantion(req, lengthModel)
+	request := InitPagination(req, lengthModel)
+	lastPage := (lengthModel + request.Size - 1) / request.Size
+
+	queryParams := c.Request.URL.Query()
+	queryParams.Set("page[size]", strconv.Itoa(request.Size))
 
 	baseURL := c.Request.URL.Scheme + "://" + c.Request.Host + c.Request.URL.Path
 
-	queryParams := url.Values{}
-	queryParams.Set(DEFAULT_PAGE_SIZE_QUERY, strconv.Itoa(request.Size))
-
-	queryParams.Set(DEFAULT_PAGE_NUMBER_QUERY, strconv.Itoa(DEFAULT_PAGE_NUMBER))
+	queryParams.Set("page[number]", strconv.Itoa(1))
 	first := baseURL + "?" + queryParams.Encode()
 
-	lastPage := (lengthModel + request.Size - 1) / request.Size
-	queryParams.Set(DEFAULT_PAGE_NUMBER_QUERY, strconv.Itoa(lastPage))
+	queryParams.Set("page[number]", strconv.Itoa(lastPage))
 	last := baseURL + "?" + queryParams.Encode()
 
 	var next *string
 	var prev *string
 
 	if request.Number > 1 {
-		queryParams.Set(DEFAULT_PAGE_NUMBER_QUERY, strconv.Itoa(request.Number-1))
+		queryParams.Set("page[number]", strconv.Itoa(request.Number-1))
 		prevStr := baseURL + "?" + queryParams.Encode()
 		prev = &prevStr
 	}
 
 	if request.Number < lastPage {
-		queryParams.Set(DEFAULT_PAGE_NUMBER_QUERY, strconv.Itoa(request.Number+1))
+		queryParams.Set("page[number]", strconv.Itoa(request.Number+1))
 		nextStr := baseURL + "?" + queryParams.Encode()
 		next = &nextStr
 	}
@@ -110,6 +113,8 @@ func GeneratePaginationLinks(c *gin.Context, req PaginationRequest, lengthModel 
 		PerPage:     request.Size,
 		From:        request.From,
 		To:          request.To,
+		Total:       lengthModel,
+		LastPage:    lastPage,
 	}
 
 	return PaginationResponse{

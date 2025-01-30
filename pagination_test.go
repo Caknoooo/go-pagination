@@ -13,7 +13,7 @@ import (
 func TestInitPagination(t *testing.T) {
 	req := pagination.PaginationRequest{Size: 0, Number: 0}
 	lengthModel := 100
-	result := pagination.InitPagiantion(req, lengthModel)
+	result := pagination.InitPagination(req, lengthModel)
 
 	if result.Size != pagination.DEFAULT_PAGE_SIZE {
 		t.Errorf("expected %v, got %v", pagination.DEFAULT_PAGE_SIZE, result.Size)
@@ -32,7 +32,7 @@ func TestInitPagination(t *testing.T) {
 	}
 
 	req = pagination.PaginationRequest{Size: 20, Number: 2}
-	result = pagination.InitPagiantion(req, lengthModel)
+	result = pagination.InitPagination(req, lengthModel)
 
 	if result.Size != 20 {
 		t.Errorf("expected %v, got %v", 20, result.Size)
