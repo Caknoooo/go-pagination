@@ -72,6 +72,10 @@ func (p *Pagination) Count(model interface{}) error {
 	return p.DB.Model(model).Count(&p.TotalItems).Error
 }
 
+func (p *Pagination) Where(query interface{}, args ...interface{}) *gorm.DB {
+	return p.DB.Where(query, args...)
+}
+
 func (p *Pagination) GenerateResponse(c *gin.Context) PaginationResponse {
 	baseURL := SetBaseURL(c)
 	queryParams := c.Request.URL.Query()
