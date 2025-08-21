@@ -130,7 +130,6 @@ func BenchmarkChainableQueryBuilder(b *testing.B) {
 	}
 }
 
-// Benchmark different page sizes
 func BenchmarkPaginatedQuery_PageSize10(b *testing.B) {
 	db := setupBenchmarkDB(1000)
 	builder := NewSimpleQueryBuilder("test_users")

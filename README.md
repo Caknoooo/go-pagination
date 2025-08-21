@@ -63,7 +63,7 @@ func main() {
 - `GET /users?search=john&page=1&limit=10` - Search in name & email
 - `GET /users?sort=name,desc&page=1&limit=10` - Sort by name descending
 
-### 2. Custom Filter Pattern (More Flexible!)
+### 2. Custom Filter Pattern with Include Support (More Flexible!)
 
 ```go
 type UserFilter struct {
@@ -104,7 +104,35 @@ func (f *UserFilter) GetDefaultSort() string {
     return "id asc"
 }
 
-// Usage in handler
+// IncludableQueryBuilder implementation for relationships
+func (f *UserFilter) GetIncludes() []string {
+    return f.Includes
+}
+
+func (f *UserFilter) GetPagination() pagination.PaginationRequest {
+    return f.Pagination
+}
+
+func (f *UserFilter) Validate() {
+    var validIncludes []string
+    allowedIncludes := f.GetAllowedIncludes()
+    for _, include := range f.Includes {
+        if allowedIncludes[include] {
+            validIncludes = append(validIncludes, include)
+        }
+    }
+    f.Includes = validIncludes
+}
+
+func (f *UserFilter) GetAllowedIncludes() map[string]bool {
+    return map[string]bool{
+        "Profile": true,
+        "Posts":   true,
+        "Orders":  true,
+    }
+}
+
+// Usage in handler with automatic include validation
 func GetUsersWithFilter(db *gorm.DB) gin.HandlerFunc {
     return func(c *gin.Context) {
         var filter UserFilter
@@ -113,18 +141,26 @@ func GetUsersWithFilter(db *gorm.DB) gin.HandlerFunc {
             return
         }
 
-        result, err := pagination.PaginatedQuery(db, &filter, &[]User{})
+        // Use IncludableQueryBuilder for automatic validation
+        users, total, err := pagination.PaginatedQueryWithIncludable[User](db, &filter)
         if err != nil {
             c.JSON(500, gin.H{"error": err.Error()})
             return
         }
 
-        c.JSON(200, result)
+        paginationResponse := pagination.CalculatePagination(filter.GetPagination(), total)
+        response := pagination.NewPaginatedResponse(200, "Users retrieved successfully", users, paginationResponse)
+        c.JSON(200, response)
     }
 }
 ```
 
-### 3. Advanced Pattern with Relationships
+**URL Examples with Includes:**
+- `GET /users?page=1&limit=10` - Basic pagination
+- `GET /users?includes=Profile,Posts&page=1&limit=10` - With relationships
+- `GET /users?search=john&includes=Profile&page=1&limit=10` - Search with relationships
+
+### 3. Advanced Pattern with Complex Relationships
 
 ```go
 type UserWithProfile struct {
@@ -132,6 +168,7 @@ type UserWithProfile struct {
     Name    string  `json:"name"`
     Email   string  `json:"email"`
     Profile Profile `json:"profile" gorm:"foreignKey:UserID"`
+    Posts   []Post  `json:"posts" gorm:"foreignKey:UserID"`
 }
 
 type Profile struct {
@@ -141,10 +178,18 @@ type Profile struct {
     Avatar string `json:"avatar"`
 }
 
+type Post struct {
+    ID     uint   `json:"id"`
+    UserID uint   `json:"user_id"`
+    Title  string `json:"title"`
+    Content string `json:"content"`
+}
+
 type UserProfileFilter struct {
     pagination.BaseFilter
-    Name string `json:"name" form:"name"`
-    Bio  string `json:"bio" form:"bio"`
+    Name     string `json:"name" form:"name"`
+    Bio      string `json:"bio" form:"bio"`
+    PostTitle string `json:"post_title" form:"post_title"`
 }
 
 func (f *UserProfileFilter) ApplyFilters(query *gorm.DB) *gorm.DB {
@@ -155,11 +200,15 @@ func (f *UserProfileFilter) ApplyFilters(query *gorm.DB) *gorm.DB {
         query = query.Joins("JOIN profiles ON profiles.user_id = users.id").
                Where("profiles.bio LIKE ?", "%"+f.Bio+"%")
     }
+    if f.PostTitle != "" {
+        query = query.Joins("JOIN posts ON posts.user_id = users.id").
+               Where("posts.title LIKE ?", "%"+f.PostTitle+"%")
+    }
     return query
 }
 
 func (f *UserProfileFilter) GetSearchFields() []string {
-    return []string{"users.name", "users.email", "profiles.bio"}
+    return []string{"users.name", "users.email", "profiles.bio", "posts.title"}
 }
 
 func (f *UserProfileFilter) GetTableName() string {
@@ -170,26 +219,93 @@ func (f *UserProfileFilter) GetDefaultSort() string {
     return "users.id asc"
 }
 
-// Handler with preload
+// IncludableQueryBuilder implementation with multiple relationships
+func (f *UserProfileFilter) GetIncludes() []string {
+    return f.Includes
+}
+
+func (f *UserProfileFilter) GetPagination() pagination.PaginationRequest {
+    return f.Pagination
+}
+
+func (f *UserProfileFilter) Validate() {
+    var validIncludes []string
+    allowedIncludes := f.GetAllowedIncludes()
+    for _, include := range f.Includes {
+        if allowedIncludes[include] {
+            validIncludes = append(validIncludes, include)
+        }
+    }
+    f.Includes = validIncludes
+}
+
+func (f *UserProfileFilter) GetAllowedIncludes() map[string]bool {
+    return map[string]bool{
+        "Profile": true,
+        "Posts":   true,
+        // Nested relationships also supported
+        "Profile.Address": true,
+        "Posts.Comments":  true,
+    }
+}
+
+// Handler with automatic relationship loading and validation
 func GetUsersWithProfiles(db *gorm.DB) gin.HandlerFunc {
     return func(c *gin.Context) {
-        var filter UserProfileFilter
-        filter.Includes = []string{"Profile"} // Auto preload!
-        
-        if err := pagination.BindPagination(c, &filter); err != nil {
-            c.JSON(400, gin.H{"error": err.Error()})
-            return
-        }
+        filter := &UserProfileFilter{}
+        filter.BindPagination(c)
+        c.ShouldBindQuery(filter)
 
-        result, err := pagination.PaginatedQuery(db, &filter, &[]UserWithProfile{})
+        // Automatically validates includes and loads relationships
+        users, total, err := pagination.PaginatedQueryWithIncludable[UserWithProfile](db, filter)
         if err != nil {
             c.JSON(500, gin.H{"error": err.Error()})
             return
         }
 
-        c.JSON(200, result)
+        paginationResponse := pagination.CalculatePagination(filter.GetPagination(), total)
+        response := pagination.NewPaginatedResponse(200, "Users with profiles retrieved successfully", users, paginationResponse)
+        c.JSON(200, response)
     }
 }
+```
+
+**Advanced URL Examples:**
+- `GET /users/profiles?includes=Profile,Posts&page=1&limit=10` - Multiple relationships
+- `GET /users/profiles?includes=Profile.Address,Posts.Comments&page=1&limit=10` - Nested relationships
+- `GET /users/profiles?bio=developer&includes=Profile&search=john&page=1&limit=10` - Complex filtering with relationships
+
+### ✨ Security Features for Includes
+
+- **Include Validation**: Only includes listed in `GetAllowedIncludes()` will be processed
+- **SQL Injection Protection**: All includes are validated with regex patterns
+- **Type Safety**: Uses interfaces to ensure required methods are available
+- **Nested Relationships**: Support for deep relationship loading with validation
+
+### 🎯 Real-World Example: Athlete Management System
+
+```go
+// Complete example from the examples/ folder
+type AthleteFilter struct {
+    pagination.BaseFilter
+    ID         int `json:"id" form:"id"`
+    ProvinceID int `json:"province_id" form:"province_id"`
+    SportID    int `json:"sport_id" form:"sport_id"`
+    EventID    int `json:"event_id" form:"event_id"`
+}
+
+func (f *AthleteFilter) GetAllowedIncludes() map[string]bool {
+    return map[string]bool{
+        "Province":      true,  // Load province data
+        "Sport":         true,  // Load sport data
+        "PlayersEvents": true,  // Load events participation
+    }
+}
+
+// API Usage Examples:
+// GET /athletes?includes=Province,Sport&page=1&limit=10
+// GET /athletes?includes=Province&province_id=1&search=john
+// GET /athletes?includes=Sport,PlayersEvents&sport_id=2
 ```
 
 ## 🔍 Search Features
@@ -233,125 +349,6 @@ Automatic search adapts to database:
 }
 ```
 
-## 🔗 Include Relationships (New!)
-
-This library now supports include relationships with safe validation!
-
-### 1. IncludableQueryBuilder Interface
-
-```go
-type AthleteFilter struct {
-    pagination.BaseFilter
-    ID         int `json:"id" form:"id"`
-    ProvinceID int `json:"province_id" form:"province_id"`
-    SportID    int `json:"sport_id" form:"sport_id"`
-}
-
-// IncludableQueryBuilder implementation
-func (f *AthleteFilter) ApplyFilters(query *gorm.DB) *gorm.DB {
-    if f.ID > 0 {
-        query = query.Where("id = ?", f.ID)
-    }
-    if f.ProvinceID > 0 {
-        query = query.Where("province_id = ?", f.ProvinceID)
-    }
-    return query
-}
-
-func (f *AthleteFilter) GetTableName() string {
-    return "athletes"
-}
-
-func (f *AthleteFilter) GetSearchFields() []string {
-    return []string{"name"}
-}
-
-func (f *AthleteFilter) GetDefaultSort() string {
-    return "id asc"
-}
-
-func (f *AthleteFilter) GetIncludes() []string {
-    return f.Includes
-}
-
-func (f *AthleteFilter) GetPagination() pagination.PaginationRequest {
-    return f.Pagination
-}
-
-func (f *AthleteFilter) Validate() {
-    var validIncludes []string
-    allowedIncludes := f.GetAllowedIncludes()
-    for _, include := range f.Includes {
-        if allowedIncludes[include] {
-            validIncludes = append(validIncludes, include)
-        }
-    }
-    f.Includes = validIncludes
-}
-
-func (f *AthleteFilter) GetAllowedIncludes() map[string]bool {
-    return map[string]bool{
-        "Province":      true,
-        "Sport":         true,
-        "PlayersEvents": true,
-    }
-}
-```
-
-### 2. Model with Relationships
-
-```go
-type Athlete struct {
-    ID            int             `json:"id"`
-    ProvinceID    int             `json:"province_id"`
-    Province      *Province       `json:"province,omitempty"`
-    SportID       int             `json:"sport_id"`
-    Sport         *Sport          `json:"sport,omitempty"`
-    Name          string          `json:"name"`
-    Age           int             `json:"age"`
-    PlayersEvents []PlayersEvents `json:"players_events,omitempty"`
-}
-```
-
-### 3. Usage with IncludableQueryBuilder
-
-```go
-func GetAthletesWithIncludes(db *gorm.DB) gin.HandlerFunc {
-    return func(c *gin.Context) {
-        filter := &AthleteFilter{}
-        filter.BindPagination(c)
-        c.ShouldBindQuery(filter)
-
-        // Automatically validate includes and load relationships
-        athletes, total, err := pagination.PaginatedQueryWithIncludable[Athlete](db, filter)
-
-        if err != nil {
-            c.JSON(500, gin.H{"error": err.Error()})
-            return
-        }
-
-        paginationResponse := pagination.CalculatePagination(filter.GetPagination(), total)
-        response := pagination.NewPaginatedResponse(200, "Athletes retrieved successfully", athletes, paginationResponse)
-
-        c.JSON(200, response)
-    }
-}
-```
-
-### 4. URL with Includes
-
-```
-GET /athletes?includes=Province,Sport&page=1&limit=10
-```
-
-The result will return athletes along with preloaded province and sport.
-
-### 5. Security Features
-
-- **Include Validation**: Only includes listed in `GetAllowedIncludes()` will be processed
-- **SQL Injection Protection**: All includes are validated with regex patterns
-- **Type Safety**: Uses interfaces to ensure required methods are available
-
 ## 🎯 URL Parameters
 
 | Parameter | Description | Example |
@@ -360,8 +357,24 @@ The result will return athletes along with preloaded province and sport.
 | `limit` | Items per page (default: 10) | `limit=25` |
 | `search` | Global search | `search=john` |
 | `sort` | Sorting | `sort=name,desc` |
-| `include` | Preload relations | `include=profile,posts` |
+| `includes` | Preload relations (validated) | `includes=profile,posts` |
 | Custom Fields | Specific filters | `name=john&active=true` |
+
+### Advanced Include Examples
+
+```bash
+# Single relationship
+GET /athletes?includes=Province&page=1&limit=10
+
+# Multiple relationships
+GET /athletes?includes=Province,Sport,PlayersEvents&page=1&limit=10
+
+# Nested relationships (if supported)
+GET /users?includes=Profile.Address,Posts.Comments&page=1&limit=10
+
+# Combined with search and filters
+GET /athletes?includes=Province,Sport&search=john&province_id=1&page=1&limit=10
+```
 
 ## 🔧 Configuration Options
 
@@ -521,6 +534,31 @@ func TestUserPagination(t *testing.T) {
     assert.Equal(t, int64(5), total)
     assert.Len(t, users, 5)
 }
+```
+
+## 📚 Complete Examples
+
+Check the `examples/` folder for real-world implementations:
+
+- **AthleteFilter**: Complete filter with Province, Sport relations + include support
+- **ProvinceFilter**: Simple filter with Athletes relationship + include validation  
+- **SportFilter**: Filter with Athletes/Events relationships + secure includes
+- **EventFilter**: Date range filter with Sport relation + include support
+
+All examples include:
+- ✅ Complete IncludableQueryBuilder implementation
+- ✅ Secure include validation with `GetAllowedIncludes()`
+- ✅ Real-world relationship models  
+- ✅ API endpoints ready to test with includes
+
+**Run the examples:**
+```bash
+cd examples/
+go run .
+# Server starts on :8080 with endpoints like:
+# GET /athletes?includes=Province,Sport&page=1&limit=10
+# GET /provinces/with-athletes?includes=Athletes
+# GET /sports/with-relations?includes=Athletes,Events
 ```
 
 ## 🤝 Contributing
