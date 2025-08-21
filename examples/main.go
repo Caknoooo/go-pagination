@@ -69,7 +69,7 @@ func main() {
 
 	r := gin.Default()
 
-	// Example 1: Simple pagination dengan helper function
+	// Example 1: Simple pagination with helper function
 	r.GET("/users/simple", func(c *gin.Context) {
 		response := pagination.PaginatedAPIResponse[User](
 			db, c, "users",
@@ -90,7 +90,7 @@ func main() {
 		c.JSON(response.Code, response)
 	})
 
-	// Example 3: Manual pagination dengan custom builder
+	// Example 3: Manual pagination with custom builder
 	r.GET("/users/manual", func(c *gin.Context) {
 		paginationRequest := pagination.BindPagination(c)
 
@@ -114,7 +114,7 @@ func main() {
 		c.JSON(200, response)
 	})
 
-	// Example 4: Advanced filtering dengan DynamicFilter
+	// Example 4: Advanced filtering with DynamicFilter
 	r.GET("/users/advanced", func(c *gin.Context) {
 		filter := &UserFilter{
 			DynamicFilter: pagination.DynamicFilter{
@@ -125,7 +125,7 @@ func main() {
 			},
 		}
 
-		// Bind pagination dan filter parameters
+		// Bind pagination and filter parameters
 		filter.BindPagination(c)
 
 		// Bind custom filter parameters
@@ -149,9 +149,8 @@ func main() {
 		c.JSON(200, response)
 	})
 
-	// Example 5: Pagination dengan custom filter function
+	// Example 5: Pagination with custom filter function
 	r.GET("/users/custom-filter", func(c *gin.Context) {
-		// Custom filter untuk user yang aktif
 		filterFunc := func(query *gorm.DB) *gorm.DB {
 			return query.Where("active = ?", true)
 		}
@@ -196,13 +195,13 @@ func main() {
 		c.JSON(200, response)
 	})
 
-	// Example 7: Pagination dengan PostgreSQL dialect
+	// Example 7: Pagination with PostgreSQL dialect
 	r.GET("/users/postgresql", func(c *gin.Context) {
 		paginationRequest := pagination.BindPagination(c)
 
 		builder := pagination.NewSimpleQueryBuilder("users").
 			WithSearchFields("name", "email").
-			WithDialect(pagination.PostgreSQL). // Menggunakan ILIKE untuk PostgreSQL
+			WithDialect(pagination.PostgreSQL). // Using ILIKE for PostgreSQL
 			WithDefaultSort("id asc")
 
 		users, total, err := pagination.PaginatedQueryWithOptions[User](
