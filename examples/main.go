@@ -39,6 +39,25 @@ func main() {
 		c.JSON(response.Code, response)
 	})
 
+	// Provinces with athletes using IncludableQueryBuilder
+	r.GET("/provinces/with-athletes", func(c *gin.Context) {
+		filter := &ProvinceFilter{}
+		filter.BindPagination(c)
+		c.ShouldBindQuery(filter)
+
+		provinces, total, err := pagination.PaginatedQueryWithIncludable[Province](db, filter)
+
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+
+		paginationResponse := pagination.CalculatePagination(filter.GetPagination(), total)
+		response := pagination.NewPaginatedResponse(200, "Provinces with athletes retrieved successfully", provinces, paginationResponse)
+
+		c.JSON(200, response)
+	})
+
 	// Sport endpoints
 	r.GET("/sports", func(c *gin.Context) {
 		filter := &SportFilter{}
@@ -48,6 +67,25 @@ func main() {
 		c.JSON(response.Code, response)
 	})
 
+	// Sports with athletes and events using IncludableQueryBuilder
+	r.GET("/sports/with-relations", func(c *gin.Context) {
+		filter := &SportFilter{}
+		filter.BindPagination(c)
+		c.ShouldBindQuery(filter)
+
+		sports, total, err := pagination.PaginatedQueryWithIncludable[Sport](db, filter)
+
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+
+		paginationResponse := pagination.CalculatePagination(filter.GetPagination(), total)
+		response := pagination.NewPaginatedResponse(200, "Sports with relations retrieved successfully", sports, paginationResponse)
+
+		c.JSON(200, response)
+	})
+
 	// Event endpoints
 	r.GET("/events", func(c *gin.Context) {
 		filter := &EventFilter{}
@@ -55,6 +93,25 @@ func main() {
 			db, c, filter, "Events retrieved successfully",
 		)
 		c.JSON(response.Code, response)
+	})
+
+	// Events with sport using IncludableQueryBuilder
+	r.GET("/events/with-sport", func(c *gin.Context) {
+		filter := &EventFilter{}
+		filter.BindPagination(c)
+		c.ShouldBindQuery(filter)
+
+		events, total, err := pagination.PaginatedQueryWithIncludable[Event](db, filter)
+
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+
+		paginationResponse := pagination.CalculatePagination(filter.GetPagination(), total)
+		response := pagination.NewPaginatedResponse(200, "Events with sport retrieved successfully", events, paginationResponse)
+
+		c.JSON(200, response)
 	})
 
 	// Athlete endpoints
@@ -167,9 +224,13 @@ func main() {
 	log.Println("Server starting on :8080")
 	log.Println("Available endpoints:")
 	log.Println("GET /provinces - Filter: ?id=1&name=jakarta&code=JKT&search=name&page=1&per_page=10")
+	log.Println("GET /provinces/with-athletes - Same as above but with ?includes=Athletes")
 	log.Println("GET /sports - Filter: ?id=1&name=sepak&category=team&search=name&page=1&per_page=10")
+	log.Println("GET /sports/with-relations - Same as above but with ?includes=Athletes,Events")
 	log.Println("GET /events - Filter: ?id=1&name=pon&location=jakarta&start_year=2024&search=name&page=1&per_page=10")
+	log.Println("GET /events/with-sport - Same as above but with ?includes=Sport")
 	log.Println("GET /athletes - Filter: ?id=1&province_id=1&sport_id=1&event_id=1&min_age=18&max_age=30&search=name&page=1&per_page=10")
+	log.Println("GET /athletes/with-includes - Same as above but with ?includes=Province,Sport,PlayersEvents")
 	log.Println("GET /athletes/detailed - Same as athletes but with relationships loaded")
 	log.Println("GET /provinces/:id/athletes - Athletes from specific province")
 	log.Println("GET /sports/:id/athletes - Athletes from specific sport")
@@ -226,6 +287,7 @@ func seedData(db *gorm.DB) {
 			StartDate:   time.Date(2024, 10, 15, 0, 0, 0, 0, time.UTC),
 			EndDate:     time.Date(2024, 10, 30, 0, 0, 0, 0, time.UTC),
 			Location:    "Papua",
+			SportID:     1, // Sepak Bola
 		},
 		{
 			Name:        "SEA Games 2023",
@@ -233,6 +295,7 @@ func seedData(db *gorm.DB) {
 			StartDate:   time.Date(2023, 5, 12, 0, 0, 0, 0, time.UTC),
 			EndDate:     time.Date(2023, 5, 23, 0, 0, 0, 0, time.UTC),
 			Location:    "Cambodia",
+			SportID:     2, // Basket
 		},
 		{
 			Name:        "Asian Games 2022",
@@ -240,6 +303,7 @@ func seedData(db *gorm.DB) {
 			StartDate:   time.Date(2022, 9, 10, 0, 0, 0, 0, time.UTC),
 			EndDate:     time.Date(2022, 9, 25, 0, 0, 0, 0, time.UTC),
 			Location:    "Hangzhou",
+			SportID:     3, // Voli
 		},
 		{
 			Name:        "Pekan Olahraga Daerah 2024",

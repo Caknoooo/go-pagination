@@ -15,6 +15,8 @@ type Event struct {
 	StartDate   time.Time `json:"start_date" gorm:"column:start_date"`
 	EndDate     time.Time `json:"end_date" gorm:"column:end_date"`
 	Location    string    `json:"location" gorm:"column:location"`
+	SportID     uint      `json:"sport_id" gorm:"column:sport_id"`
+	Sport       *Sport    `json:"sport,omitempty" gorm:"foreignKey:SportID"`
 	IsActive    bool      `json:"is_active" gorm:"column:is_active;default:true"`
 }
 
@@ -64,4 +66,33 @@ func (f *EventFilter) GetSearchFields() []string {
 
 func (f *EventFilter) GetDefaultSort() string {
 	return "id asc"
+}
+
+func (f *EventFilter) GetIncludes() []string {
+	return f.Includes
+}
+
+func (f *EventFilter) GetPagination() pagination.PaginationRequest {
+	return f.Pagination
+}
+
+func (f *EventFilter) Validate() {
+	var validIncludes []string
+	allowedIncludes := f.GetAllowedIncludes()
+	for _, include := range f.Includes {
+		if allowedIncludes[include] {
+			validIncludes = append(validIncludes, include)
+		}
+	}
+	f.Includes = validIncludes
+}
+
+func (f *EventFilter) GetAllowedIncludes() map[string]bool {
+	return map[string]bool{
+		// Event memiliki relasi dengan Sport
+		"Sport": true,
+		// Jika ada relasi lain, bisa ditambahkan:
+		// "Participants": true,
+		// "Athletes": true,
+	}
 }

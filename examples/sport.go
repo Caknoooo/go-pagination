@@ -7,11 +7,13 @@ import (
 
 // Sport model
 type Sport struct {
-	ID          uint   `json:"id" gorm:"primaryKey"`
-	Name        string `json:"name" gorm:"column:name"`
-	Category    string `json:"category" gorm:"column:category"`
-	Description string `json:"description" gorm:"column:description"`
-	IsActive    bool   `json:"is_active" gorm:"column:is_active;default:true"`
+	ID          uint       `json:"id" gorm:"primaryKey"`
+	Name        string     `json:"name" gorm:"column:name"`
+	Category    string     `json:"category" gorm:"column:category"`
+	Description string     `json:"description" gorm:"column:description"`
+	IsActive    bool       `json:"is_active" gorm:"column:is_active;default:true"`
+	Athletes    []Athlete  `json:"athletes,omitempty" gorm:"foreignKey:SportID"`
+	Events      []Event    `json:"events,omitempty" gorm:"foreignKey:SportID"`
 }
 
 // SportFilter - Custom filter untuk Sport
@@ -47,4 +49,31 @@ func (f *SportFilter) GetSearchFields() []string {
 
 func (f *SportFilter) GetDefaultSort() string {
 	return "id asc"
+}
+
+func (f *SportFilter) GetIncludes() []string {
+	return f.Includes
+}
+
+func (f *SportFilter) GetPagination() pagination.PaginationRequest {
+	return f.Pagination
+}
+
+func (f *SportFilter) Validate() {
+	var validIncludes []string
+	allowedIncludes := f.GetAllowedIncludes()
+	for _, include := range f.Includes {
+		if allowedIncludes[include] {
+			validIncludes = append(validIncludes, include)
+		}
+	}
+	f.Includes = validIncludes
+}
+
+func (f *SportFilter) GetAllowedIncludes() map[string]bool {
+	return map[string]bool{
+		// Sport memiliki relasi dengan Athletes dan Events
+		"Athletes": true,
+		"Events":   true,
+	}
 }

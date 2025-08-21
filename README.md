@@ -448,6 +448,7 @@ func (f *OrderFilter) ApplyFilters(query *gorm.DB) *gorm.DB {
 func (f *OrderFilter) GetSearchFields() []string {
     return []string{"orders.invoice_number", "customers.name", "customers.email"}
 }
+```
 
 ### 2. Optimal Search Fields
 
@@ -489,7 +490,6 @@ func (f *OrderFilter) GetSearchFields() []string {
 }
 ```
 
-```
 
 ## 📈 Performance Tips
 
@@ -540,50 +540,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [GORM](https://gorm.io/) for the excellent ORM
 - [Gin](https://gin-gonic.com/) for the web framework
 - The Go community for continuous inspiration
-
----
-
-Made with ❤️ by [Caknoooo](https://github.com/Caknoooo)
-
-## 🧪 Testing
-
-```go
-func TestPagination(t *testing.T) {
-    db := setupTestDB()
-    
-    filter := &UserFilter{
-        BaseFilter: pagination.BaseFilter{
-            Pagination: pagination.PaginationRequest{
-                Page:   1,
-                Limit:  10,
-                Search: "john",
-            },
-        },
-    }
-    
-    result, err := pagination.PaginatedQuery(db, filter, &[]User{})
-    assert.NoError(t, err)
-    assert.Equal(t, 1, result.Pagination.Page)
-    assert.True(t, len(result.Data.([]User)) <= 10)
-}
-```
-
-## 📚 Examples Repository
-
-Check the `examples/` folder for complete implementations:
-
-- **AthleteFilter**: Filter with Province and Sport relations
-- **ProvinceFilter**: Simple filter with name and code
-- **SportFilter**: Filter with category and description
-- **EventFilter**: Filter with date range and sport relation
-
-## 🤝 Contributing
-
-1. Fork repository
-2. Create feature branch
-3. Add tests for new features
-4. Submit pull request
-
-## 📄 License
-
-MIT License

@@ -7,9 +7,10 @@ import (
 
 // Province model
 type Province struct {
-	ID   uint   `json:"id" gorm:"primaryKey"`
-	Name string `json:"name" gorm:"column:name"`
-	Code string `json:"code" gorm:"column:code"`
+	ID       uint      `json:"id" gorm:"primaryKey"`
+	Name     string    `json:"name" gorm:"column:name"`
+	Code     string    `json:"code" gorm:"column:code"`
+	Athletes []Athlete `json:"athletes,omitempty" gorm:"foreignKey:ProvinceID"`
 }
 
 // ProvinceFilter - Custom filter untuk Province
@@ -44,4 +45,30 @@ func (f *ProvinceFilter) GetSearchFields() []string {
 
 func (f *ProvinceFilter) GetDefaultSort() string {
 	return "id asc"
+}
+
+func (f *ProvinceFilter) GetIncludes() []string {
+	return f.Includes
+}
+
+func (f *ProvinceFilter) GetPagination() pagination.PaginationRequest {
+	return f.Pagination
+}
+
+func (f *ProvinceFilter) Validate() {
+	var validIncludes []string
+	allowedIncludes := f.GetAllowedIncludes()
+	for _, include := range f.Includes {
+		if allowedIncludes[include] {
+			validIncludes = append(validIncludes, include)
+		}
+	}
+	f.Includes = validIncludes
+}
+
+func (f *ProvinceFilter) GetAllowedIncludes() map[string]bool {
+	return map[string]bool{
+		// Province memiliki relasi dengan Athletes
+		"Athletes": true,
+	}
 }
