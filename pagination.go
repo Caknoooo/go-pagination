@@ -1,138 +1,126 @@
 package pagination
 
 import (
+	"math"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
-
-const (
-	DefaultPageSize   = 10
-	DefaultPageNumber = 1
-	PageSizeQuery     = "page[size]"
-	PageNumberQuery   = "page[number]"
-)
-
-type Pagination struct {
-	DB         *gorm.DB
-	Req        PaginationRequest
-	TotalItems int64
-}
 
 type PaginationRequest struct {
-	Size   int `form:"page[size]"`
-	Number int `form:"page[number]"`
+	Page    int    `json:"page" form:"page"`
+	PerPage int    `json:"per_page" form:"per_page"`
+	Search  string `json:"search" form:"search"`
+	Sort    string `json:"sort" form:"sort"`
+	Order   string `json:"order" form:"order"`
 }
 
 type PaginationResponse struct {
-	Meta  MetaResponse    `json:"meta"`
-	Links PaginationLinks `json:"links"`
+	Page    int   `json:"page"`
+	PerPage int   `json:"per_page"`
+	MaxPage int64 `json:"max_page"`
+	Total   int64 `json:"total"`
 }
 
-type MetaResponse struct {
-	CurrentPage int  `json:"current_page"`
-	PerPage     int  `json:"per_page"`
-	From        *int `json:"from"`
-	To          *int `json:"to"`
+type PaginatedResponse struct {
+	Code       int                `json:"code"`
+	Status     string             `json:"status"`
+	Message    string             `json:"message"`
+	Data       interface{}        `json:"data"`
+	Pagination PaginationResponse `json:"pagination"`
 }
 
-type PaginationLinks struct {
-	First string  `json:"first"`
-	Last  string  `json:"last"`
-	Next  *string `json:"next"`
-	Prev  *string `json:"prev"`
+func (p *PaginationRequest) GetOffset() int {
+	if p.Page <= 0 {
+		p.Page = 1
+	}
+	return (p.Page - 1) * p.PerPage
 }
 
-func New(db *gorm.DB, c *gin.Context) (*Pagination, error) {
-	var req PaginationRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
-		return nil, err
+func (p *PaginationRequest) GetLimit() int {
+	if p.PerPage <= 0 {
+		p.PerPage = 10
+	}
+	return p.PerPage
+}
+
+func (p *PaginationRequest) Validate() {
+	if p.Page <= 0 {
+		p.Page = 1
 	}
 
-	if req.Size <= 0 {
-		req.Size = DefaultPageSize
-	}
-	if req.Number <= 0 {
-		req.Number = DefaultPageNumber
+	if p.PerPage <= 0 {
+		p.PerPage = 10
 	}
 
-	return &Pagination{
-		DB:  db,
-		Req: req,
-	}, nil
-}
-
-func (p *Pagination) Query() *gorm.DB {
-	offset := (p.Req.Number - 1) * p.Req.Size
-	return p.DB.Offset(offset).Limit(p.Req.Size)
-}
-
-func (p *Pagination) Count(model interface{}) error {
-	return p.DB.Model(model).Count(&p.TotalItems).Error
-}
-
-func (p *Pagination) Where(query interface{}, args ...interface{}) *gorm.DB {
-	return p.DB.Where(query, args...)
-}
-
-func (p *Pagination) GenerateResponse(c *gin.Context) PaginationResponse {
-	baseURL := SetBaseURL(c)
-	queryParams := c.Request.URL.Query()
-
-	queryParams.Del(PageSizeQuery)
-	queryParams.Del(PageNumberQuery)
-
-	offset := (p.Req.Number - 1) * p.Req.Size
-	from := offset + 1
-	to := offset + p.Req.Size
-	if to > int(p.TotalItems) {
-		to = int(p.TotalItems)
+	if p.Order == "" {
+		p.Order = "asc"
 	}
 
-	queryParams.Set(PageSizeQuery, strconv.Itoa(p.Req.Size))
-	queryParams.Set(PageNumberQuery, strconv.Itoa(DefaultPageNumber))
-	first := baseURL + "?" + queryParams.Encode()
-
-	lastPage := (int(p.TotalItems) + p.Req.Size - 1) / p.Req.Size
-	queryParams.Set(PageNumberQuery, strconv.Itoa(lastPage))
-	last := baseURL + "?" + queryParams.Encode()
-
-	var next, prev *string
-	if p.Req.Number > 1 {
-		queryParams.Set(PageNumberQuery, strconv.Itoa(p.Req.Number-1))
-		prevStr := baseURL + "?" + queryParams.Encode()
-		prev = &prevStr
+	if p.Order != "asc" && p.Order != "desc" {
+		p.Order = "asc"
 	}
-	if p.Req.Number < lastPage {
-		queryParams.Set(PageNumberQuery, strconv.Itoa(p.Req.Number+1))
-		nextStr := baseURL + "?" + queryParams.Encode()
-		next = &nextStr
+}
+
+func BindPagination(ctx *gin.Context) PaginationRequest {
+	pagination := PaginationRequest{
+		Page:    1,
+		PerPage: 10,
+		Search:  "",
+		Sort:    "",
+		Order:   "asc",
+	}
+
+	if pageStr := ctx.Query("page"); pageStr != "" {
+		if page, err := strconv.Atoi(pageStr); err == nil && page > 0 {
+			pagination.Page = page
+		}
+	}
+
+	if perPageStr := ctx.Query("per_page"); perPageStr != "" {
+		if perPage, err := strconv.Atoi(perPageStr); err == nil && perPage > 0 && perPage <= 100 {
+			pagination.PerPage = perPage
+		}
+	}
+
+	pagination.Search = ctx.Query("search")
+
+	pagination.Sort = ctx.Query("sort")
+
+	if order := ctx.Query("order"); order == "desc" || order == "asc" {
+		pagination.Order = order
+	}
+
+	pagination.Validate()
+	return pagination
+}
+
+func CalculatePagination(pagination PaginationRequest, totalCount int64) PaginationResponse {
+	maxPage := int64(math.Ceil(float64(totalCount) / float64(pagination.PerPage)))
+
+	if maxPage == 0 {
+		maxPage = 1
 	}
 
 	return PaginationResponse{
-		Meta: MetaResponse{
-			CurrentPage: p.Req.Number,
-			PerPage:     p.Req.Size,
-			From:        &from,
-			To:          &to,
-		},
-		Links: PaginationLinks{
-			First: first,
-			Last:  last,
-			Next:  next,
-			Prev:  prev,
-		},
+		Page:    pagination.Page,
+		PerPage: pagination.PerPage,
+		MaxPage: maxPage,
+		Total:   totalCount,
 	}
 }
 
-func SetBaseURL(c *gin.Context) string {
-	scheme := "http"
-	if c.Request.TLS != nil {
-		scheme = "https"
+func NewPaginatedResponse(code int, message string, data interface{}, pagination PaginationResponse) PaginatedResponse {
+	status := "success"
+	if code >= 400 {
+		status = "error"
 	}
 
-	baseURL := scheme + "://" + c.Request.Host + c.Request.URL.Path
-
-	return baseURL
+	return PaginatedResponse{
+		Code:       code,
+		Status:     status,
+		Message:    message,
+		Data:       data,
+		Pagination: pagination,
+	}
 }
