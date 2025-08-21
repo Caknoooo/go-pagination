@@ -380,11 +380,3 @@ Lihat folder `examples/` untuk implementasi lengkap:
 ## 📄 License
 
 MIT License
-
----
-
-**Go Pagination** - Making pagination **dinamis serta mudah digunakan**! 🚀
-}
-```
-
-#### PaginateModel
