@@ -12,25 +12,21 @@ import (
 )
 
 func main() {
-	// Database connection
 	dsn := "root:root@tcp(localhost:3306)/sports_db?charset=utf8mb4&parseTime=True&loc=Local"
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
-	// Auto migrate all models
 	err = db.AutoMigrate(&Province{}, &Sport{}, &Event{}, &Athlete{})
 	if err != nil {
 		log.Fatal("Failed to migrate database:", err)
 	}
 
-	// Seed data
 	seedData(db)
 
 	r := gin.Default()
 
-	// Province endpoints
 	r.GET("/provinces", func(c *gin.Context) {
 		filter := &ProvinceFilter{}
 		response := pagination.PaginatedAPIResponseWithCustomFilter[Province](
@@ -39,7 +35,6 @@ func main() {
 		c.JSON(response.Code, response)
 	})
 
-	// Provinces with athletes using IncludableQueryBuilder
 	r.GET("/provinces/with-athletes", func(c *gin.Context) {
 		filter := &ProvinceFilter{}
 		filter.BindPagination(c)
@@ -58,7 +53,6 @@ func main() {
 		c.JSON(200, response)
 	})
 
-	// Sport endpoints
 	r.GET("/sports", func(c *gin.Context) {
 		filter := &SportFilter{}
 		response := pagination.PaginatedAPIResponseWithCustomFilter[Sport](
@@ -67,7 +61,6 @@ func main() {
 		c.JSON(response.Code, response)
 	})
 
-	// Sports with athletes and events using IncludableQueryBuilder
 	r.GET("/sports/with-relations", func(c *gin.Context) {
 		filter := &SportFilter{}
 		filter.BindPagination(c)
@@ -86,7 +79,6 @@ func main() {
 		c.JSON(200, response)
 	})
 
-	// Event endpoints
 	r.GET("/events", func(c *gin.Context) {
 		filter := &EventFilter{}
 		response := pagination.PaginatedAPIResponseWithCustomFilter[Event](
@@ -95,7 +87,6 @@ func main() {
 		c.JSON(response.Code, response)
 	})
 
-	// Events with sport using IncludableQueryBuilder
 	r.GET("/events/with-sport", func(c *gin.Context) {
 		filter := &EventFilter{}
 		filter.BindPagination(c)
@@ -114,7 +105,6 @@ func main() {
 		c.JSON(200, response)
 	})
 
-	// Athlete endpoints
 	r.GET("/athletes", func(c *gin.Context) {
 		filter := &AthleteFilter{}
 		response := pagination.PaginatedAPIResponseWithCustomFilter[Athlete](
@@ -123,13 +113,11 @@ func main() {
 		c.JSON(response.Code, response)
 	})
 
-	// Athletes with relationships using IncludableQueryBuilder
 	r.GET("/athletes/with-includes", func(c *gin.Context) {
 		filter := &AthleteFilter{}
 		filter.BindPagination(c)
 		c.ShouldBindQuery(filter)
 
-		// Use the new IncludableQueryBuilder method
 		athletes, total, err := pagination.PaginatedQueryWithIncludable[Athlete](db, filter)
 
 		if err != nil {
@@ -143,13 +131,11 @@ func main() {
 		c.JSON(200, response)
 	})
 
-	// Athletes with relationships
 	r.GET("/athletes/detailed", func(c *gin.Context) {
 		filter := &AthleteFilter{}
 		filter.BindPagination(c)
 		c.ShouldBindQuery(filter)
 
-		// Load relationships
 		filter.Includes = []string{"Province", "Sport", "Event"}
 
 		athletes, total, err := pagination.PaginatedQuery[Athlete](
@@ -167,7 +153,6 @@ func main() {
 		c.JSON(200, response)
 	})
 
-	// Athletes by province
 	r.GET("/provinces/:id/athletes", func(c *gin.Context) {
 		provinceID, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
@@ -185,7 +170,6 @@ func main() {
 		c.JSON(response.Code, response)
 	})
 
-	// Athletes by sport
 	r.GET("/sports/:id/athletes", func(c *gin.Context) {
 		sportID, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
@@ -203,7 +187,6 @@ func main() {
 		c.JSON(response.Code, response)
 	})
 
-	// Athletes by event
 	r.GET("/events/:id/athletes", func(c *gin.Context) {
 		eventID, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
@@ -240,7 +223,6 @@ func main() {
 }
 
 func seedData(db *gorm.DB) {
-	// Check if data already exists
 	var count int64
 	db.Model(&Province{}).Count(&count)
 	if count > 0 {
@@ -249,7 +231,6 @@ func seedData(db *gorm.DB) {
 
 	log.Println("Seeding database...")
 
-	// Seed provinces
 	provinces := []Province{
 		{Name: "DKI Jakarta", Code: "JKT"},
 		{Name: "Jawa Barat", Code: "JBR"},
@@ -264,7 +245,6 @@ func seedData(db *gorm.DB) {
 		db.Create(&province)
 	}
 
-	// Seed sports
 	sports := []Sport{
 		{Name: "Sepak Bola", Category: "Team Sport", Description: "Olahraga tim dengan bola"},
 		{Name: "Basket", Category: "Team Sport", Description: "Olahraga tim dengan keranjang"},
@@ -279,7 +259,6 @@ func seedData(db *gorm.DB) {
 		db.Create(&sport)
 	}
 
-	// Seed events
 	events := []Event{
 		{
 			Name:        "PON XXI Papua 2024",

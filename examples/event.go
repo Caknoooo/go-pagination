@@ -7,7 +7,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// Event model
 type Event struct {
 	ID          uint      `json:"id" gorm:"primaryKey"`
 	Name        string    `json:"name" gorm:"column:name"`
@@ -19,8 +18,6 @@ type Event struct {
 	Sport       *Sport    `json:"sport,omitempty" gorm:"foreignKey:SportID"`
 	IsActive    bool      `json:"is_active" gorm:"column:is_active;default:true"`
 }
-
-// EventFilter - Custom filter untuk Event
 type EventFilter struct {
 	pagination.BaseFilter
 	ID        int       `json:"id" form:"id"`
@@ -89,10 +86,6 @@ func (f *EventFilter) Validate() {
 
 func (f *EventFilter) GetAllowedIncludes() map[string]bool {
 	return map[string]bool{
-		// Event memiliki relasi dengan Sport
 		"Sport": true,
-		// Jika ada relasi lain, bisa ditambahkan:
-		// "Participants": true,
-		// "Athletes": true,
 	}
 }

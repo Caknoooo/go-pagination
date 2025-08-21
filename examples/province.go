@@ -5,7 +5,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// Province model
 type Province struct {
 	ID       uint      `json:"id" gorm:"primaryKey"`
 	Name     string    `json:"name" gorm:"column:name"`
@@ -13,7 +12,6 @@ type Province struct {
 	Athletes []Athlete `json:"athletes,omitempty" gorm:"foreignKey:ProvinceID"`
 }
 
-// ProvinceFilter - Custom filter untuk Province
 type ProvinceFilter struct {
 	pagination.BaseFilter
 	ID   int    `json:"id" form:"id"`
@@ -68,7 +66,6 @@ func (f *ProvinceFilter) Validate() {
 
 func (f *ProvinceFilter) GetAllowedIncludes() map[string]bool {
 	return map[string]bool{
-		// Province memiliki relasi dengan Athletes
 		"Athletes": true,
 	}
 }

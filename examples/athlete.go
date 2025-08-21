@@ -5,7 +5,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// Athlete model with relationships
 type Athlete struct {
 	ID            int             `json:"id"`
 	ProvinceID    int             `json:"province_id"`
@@ -21,7 +20,6 @@ type Athlete struct {
 	PlayersEvents []PlayersEvents `json:"players_events,omitempty" gorm:"polymorphic:Player;polymorphicValue:athlete"`
 }
 
-// PlayersEvents model
 type PlayersEvents struct {
 	ID         int    `json:"id"`
 	PlayerID   int    `json:"player_id"`
@@ -29,7 +27,6 @@ type PlayersEvents struct {
 	EventID    int    `json:"event_id"`
 }
 
-// AthleteFilter - Custom filter untuk Athlete dengan include support
 type AthleteFilter struct {
 	pagination.BaseFilter
 	ID         int `json:"id" form:"id"`

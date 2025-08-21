@@ -5,18 +5,16 @@ import (
 	"gorm.io/gorm"
 )
 
-// Sport model
 type Sport struct {
-	ID          uint       `json:"id" gorm:"primaryKey"`
-	Name        string     `json:"name" gorm:"column:name"`
-	Category    string     `json:"category" gorm:"column:category"`
-	Description string     `json:"description" gorm:"column:description"`
-	IsActive    bool       `json:"is_active" gorm:"column:is_active;default:true"`
-	Athletes    []Athlete  `json:"athletes,omitempty" gorm:"foreignKey:SportID"`
-	Events      []Event    `json:"events,omitempty" gorm:"foreignKey:SportID"`
+	ID          uint      `json:"id" gorm:"primaryKey"`
+	Name        string    `json:"name" gorm:"column:name"`
+	Category    string    `json:"category" gorm:"column:category"`
+	Description string    `json:"description" gorm:"column:description"`
+	IsActive    bool      `json:"is_active" gorm:"column:is_active;default:true"`
+	Athletes    []Athlete `json:"athletes,omitempty" gorm:"foreignKey:SportID"`
+	Events      []Event   `json:"events,omitempty" gorm:"foreignKey:SportID"`
 }
 
-// SportFilter - Custom filter untuk Sport
 type SportFilter struct {
 	pagination.BaseFilter
 	ID       int    `json:"id" form:"id"`
@@ -72,7 +70,6 @@ func (f *SportFilter) Validate() {
 
 func (f *SportFilter) GetAllowedIncludes() map[string]bool {
 	return map[string]bool{
-		// Sport memiliki relasi dengan Athletes dan Events
 		"Athletes": true,
 		"Events":   true,
 	}
