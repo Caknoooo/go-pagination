@@ -14,6 +14,17 @@ type QueryBuilder interface {
 	GetSearchFields() []string
 }
 
+type IncludableQueryBuilder interface {
+	QueryBuilder
+	GetIncludes() []string
+	GetPagination() PaginationRequest
+	Validate()
+}
+
+type AllowedIncludesProvider interface {
+	GetAllowedIncludes() map[string]bool
+}
+
 // applyAutoSearch applies search automatically based on provided search fields
 func applyAutoSearch(query *gorm.DB, searchTerm string, searchFields []string, dialect DatabaseDialect) *gorm.DB {
 	if len(searchFields) == 0 || searchTerm == "" {
@@ -78,6 +89,39 @@ func PaginatedQuery[T any](
 	})
 }
 
+// PaginatedQueryWithIncludable handles queries with includable query builders
+func PaginatedQueryWithIncludable[T any](
+	db *gorm.DB,
+	builder IncludableQueryBuilder,
+) ([]T, int64, error) {
+	// Validate the builder
+	builder.Validate()
+
+	// Get pagination and includes from the builder
+	pagination := builder.GetPagination()
+	includes := builder.GetIncludes()
+
+	return PaginatedQueryWithOptions[T](db, builder, pagination, includes, PaginatedQueryOptions{
+		Dialect: MySQL, // Default to MySQL for backward compatibility
+	})
+}
+
+// PaginatedQueryWithIncludableAndOptions handles queries with includable query builders and custom options
+func PaginatedQueryWithIncludableAndOptions[T any](
+	db *gorm.DB,
+	builder IncludableQueryBuilder,
+	options PaginatedQueryOptions,
+) ([]T, int64, error) {
+	// Validate the builder
+	builder.Validate()
+
+	// Get pagination and includes from the builder
+	pagination := builder.GetPagination()
+	includes := builder.GetIncludes()
+
+	return PaginatedQueryWithOptions[T](db, builder, pagination, includes, options)
+}
+
 func PaginatedQueryWithOptions[T any](
 	db *gorm.DB,
 	builder QueryBuilder,
@@ -137,11 +181,10 @@ func PaginatedQueryWithOptions[T any](
 	// Apply pagination
 	dataQuery = dataQuery.Offset(pagination.GetOffset()).Limit(pagination.GetLimit())
 
-	// Apply preloads
-	for _, include := range includes {
-		if isValidInclude(include) {
-			dataQuery = dataQuery.Preload(include)
-		}
+	// Validate and apply preloads
+	validatedIncludes := validateIncludes(builder, includes)
+	for _, include := range validatedIncludes {
+		dataQuery = dataQuery.Preload(include)
 	}
 
 	// Execute data query
@@ -178,6 +221,29 @@ func isValidInclude(include string) bool {
 		}
 	}
 	return len(include) > 0
+}
+
+// validateIncludes validates includes against allowed includes for the builder
+func validateIncludes(builder interface{}, includes []string) []string {
+	if includeValidator, ok := builder.(AllowedIncludesProvider); ok {
+		allowedIncludes := includeValidator.GetAllowedIncludes()
+		var validIncludes []string
+		for _, include := range includes {
+			if isValidInclude(include) && allowedIncludes[include] {
+				validIncludes = append(validIncludes, include)
+			}
+		}
+		return validIncludes
+	}
+
+	// Fallback: just validate syntax if no allowed includes defined
+	var validIncludes []string
+	for _, include := range includes {
+		if isValidInclude(include) {
+			validIncludes = append(validIncludes, include)
+		}
+	}
+	return validIncludes
 }
 
 type SimpleQueryBuilder struct {

@@ -5,27 +5,37 @@ import (
 	"gorm.io/gorm"
 )
 
-// Athlete model
+// Athlete model with relationships
 type Athlete struct {
-	ID         uint   `json:"id" gorm:"primaryKey"`
-	Name       string `json:"name" gorm:"column:name"`
-	ProvinceID uint   `json:"province_id" gorm:"column:province_id"`
-	SportID    uint   `json:"sport_id" gorm:"column:sport_id"`
-	EventID    uint   `json:"event_id" gorm:"column:event_id"`
-	Age        int    `json:"age" gorm:"column:age"`
-	IsActive   bool   `json:"is_active" gorm:"column:is_active;default:true"`
+	ID            int             `json:"id"`
+	ProvinceID    int             `json:"province_id"`
+	Province      *Province       `json:"province,omitempty"`
+	SportID       int             `json:"sport_id"`
+	Sport         *Sport          `json:"sport,omitempty"`
+	Name          string          `json:"name"`
+	Age           int             `json:"age"`
+	Gender        string          `json:"gender"`
+	BirthDate     string          `json:"birthdate"`
+	Height        int             `json:"height"`
+	Image         string          `json:"image"`
+	PlayersEvents []PlayersEvents `json:"players_events,omitempty" gorm:"polymorphic:Player;polymorphicValue:athlete"`
 }
 
-// AthleteFilter - Custom filter untuk Athlete
+// PlayersEvents model
+type PlayersEvents struct {
+	ID         int    `json:"id"`
+	PlayerID   int    `json:"player_id"`
+	PlayerType string `json:"player_type"`
+	EventID    int    `json:"event_id"`
+}
+
+// AthleteFilter - Custom filter untuk Athlete dengan include support
 type AthleteFilter struct {
 	pagination.BaseFilter
-	ID         int  `json:"id" form:"id"`
-	ProvinceID int  `json:"province_id" form:"province_id"`
-	SportID    int  `json:"sport_id" form:"sport_id"`
-	EventID    int  `json:"event_id" form:"event_id"`
-	MinAge     int  `json:"min_age" form:"min_age"`
-	MaxAge     int  `json:"max_age" form:"max_age"`
-	IsActive   bool `json:"is_active" form:"is_active"`
+	ID         int `json:"id" form:"id"`
+	ProvinceID int `json:"province_id" form:"province_id"`
+	SportID    int `json:"sport_id" form:"sport_id"`
+	EventID    int `json:"event_id" form:"event_id"`
 }
 
 func (f *AthleteFilter) ApplyFilters(query *gorm.DB) *gorm.DB {
@@ -39,15 +49,9 @@ func (f *AthleteFilter) ApplyFilters(query *gorm.DB) *gorm.DB {
 		query = query.Where("sport_id = ?", f.SportID)
 	}
 	if f.EventID > 0 {
-		query = query.Where("event_id = ?", f.EventID)
+		// You can add joins or subqueries here for EventID filtering
+		// Example: query = query.Joins("JOIN players_events pe ON pe.player_id = athletes.id AND pe.player_type = 'athlete'").Where("pe.event_id = ?", f.EventID)
 	}
-	if f.MinAge > 0 {
-		query = query.Where("age >= ?", f.MinAge)
-	}
-	if f.MaxAge > 0 {
-		query = query.Where("age <= ?", f.MaxAge)
-	}
-
 	return query
 }
 
@@ -61,4 +65,31 @@ func (f *AthleteFilter) GetSearchFields() []string {
 
 func (f *AthleteFilter) GetDefaultSort() string {
 	return "id asc"
+}
+
+func (f *AthleteFilter) GetIncludes() []string {
+	return f.Includes
+}
+
+func (f *AthleteFilter) GetPagination() pagination.PaginationRequest {
+	return f.Pagination
+}
+
+func (f *AthleteFilter) Validate() {
+	var validIncludes []string
+	allowedIncludes := f.GetAllowedIncludes()
+	for _, include := range f.Includes {
+		if allowedIncludes[include] {
+			validIncludes = append(validIncludes, include)
+		}
+	}
+	f.Includes = validIncludes
+}
+
+func (f *AthleteFilter) GetAllowedIncludes() map[string]bool {
+	return map[string]bool{
+		"Province":      true,
+		"Sport":         true,
+		"PlayersEvents": true,
+	}
 }

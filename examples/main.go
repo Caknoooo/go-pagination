@@ -66,6 +66,26 @@ func main() {
 		c.JSON(response.Code, response)
 	})
 
+	// Athletes with relationships using IncludableQueryBuilder
+	r.GET("/athletes/with-includes", func(c *gin.Context) {
+		filter := &AthleteFilter{}
+		filter.BindPagination(c)
+		c.ShouldBindQuery(filter)
+
+		// Use the new IncludableQueryBuilder method
+		athletes, total, err := pagination.PaginatedQueryWithIncludable[Athlete](db, filter)
+
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+
+		paginationResponse := pagination.CalculatePagination(filter.GetPagination(), total)
+		response := pagination.NewPaginatedResponse(200, "Athletes with includes retrieved successfully", athletes, paginationResponse)
+
+		c.JSON(200, response)
+	})
+
 	// Athletes with relationships
 	r.GET("/athletes/detailed", func(c *gin.Context) {
 		filter := &AthleteFilter{}
@@ -236,25 +256,43 @@ func seedData(db *gorm.DB) {
 
 	// Seed athletes
 	athletes := []Athlete{
-		{Name: "Budi Santoso", ProvinceID: 1, SportID: 1, EventID: 1, Age: 25},
-		{Name: "Siti Nurhaliza", ProvinceID: 1, SportID: 2, EventID: 1, Age: 23},
-		{Name: "Ahmad Subandrio", ProvinceID: 2, SportID: 1, EventID: 2, Age: 27},
-		{Name: "Dewi Sartika", ProvinceID: 2, SportID: 3, EventID: 2, Age: 24},
-		{Name: "Rudi Tabuti", ProvinceID: 3, SportID: 4, EventID: 3, Age: 26},
-		{Name: "Maya Sari", ProvinceID: 3, SportID: 5, EventID: 3, Age: 22},
-		{Name: "Andi Lala", ProvinceID: 4, SportID: 1, EventID: 4, Age: 28},
-		{Name: "Rina Marlina", ProvinceID: 4, SportID: 2, EventID: 4, Age: 21},
-		{Name: "Agus Salim", ProvinceID: 5, SportID: 3, EventID: 1, Age: 29},
-		{Name: "Putri Indah", ProvinceID: 5, SportID: 4, EventID: 2, Age: 20},
-		{Name: "Joko Widodo", ProvinceID: 6, SportID: 5, EventID: 3, Age: 30},
-		{Name: "Sari Dewi", ProvinceID: 6, SportID: 6, EventID: 4, Age: 19},
-		{Name: "Bambang Pamungkas", ProvinceID: 7, SportID: 1, EventID: 1, Age: 32},
-		{Name: "Taufik Hidayat", ProvinceID: 7, SportID: 4, EventID: 2, Age: 33},
-		{Name: "Liliyana Natsir", ProvinceID: 1, SportID: 4, EventID: 3, Age: 31},
+		{Name: "Budi Santoso", ProvinceID: 1, SportID: 1, Age: 25, Gender: "Male", BirthDate: "1998-01-15", Height: 175, Image: "budi.jpg"},
+		{Name: "Siti Nurhaliza", ProvinceID: 1, SportID: 2, Age: 23, Gender: "Female", BirthDate: "2000-05-20", Height: 165, Image: "siti.jpg"},
+		{Name: "Ahmad Subandrio", ProvinceID: 2, SportID: 1, Age: 27, Gender: "Male", BirthDate: "1996-08-10", Height: 180, Image: "ahmad.jpg"},
+		{Name: "Dewi Sartika", ProvinceID: 2, SportID: 3, Age: 24, Gender: "Female", BirthDate: "1999-12-05", Height: 168, Image: "dewi.jpg"},
+		{Name: "Rudi Tabuti", ProvinceID: 3, SportID: 4, Age: 26, Gender: "Male", BirthDate: "1997-03-22", Height: 172, Image: "rudi.jpg"},
+		{Name: "Maya Sari", ProvinceID: 3, SportID: 5, Age: 22, Gender: "Female", BirthDate: "2001-07-18", Height: 160, Image: "maya.jpg"},
+		{Name: "Andi Lala", ProvinceID: 4, SportID: 1, Age: 28, Gender: "Male", BirthDate: "1995-11-30", Height: 178, Image: "andi.jpg"},
+		{Name: "Rina Marlina", ProvinceID: 4, SportID: 2, Age: 21, Gender: "Female", BirthDate: "2002-04-14", Height: 163, Image: "rina.jpg"},
+		{Name: "Agus Salim", ProvinceID: 5, SportID: 3, Age: 29, Gender: "Male", BirthDate: "1994-09-25", Height: 185, Image: "agus.jpg"},
+		{Name: "Putri Indah", ProvinceID: 5, SportID: 4, Age: 20, Gender: "Female", BirthDate: "2003-02-08", Height: 158, Image: "putri.jpg"},
+		{Name: "Joko Widodo", ProvinceID: 6, SportID: 5, Age: 30, Gender: "Male", BirthDate: "1993-06-12", Height: 170, Image: "joko.jpg"},
+		{Name: "Sari Dewi", ProvinceID: 6, SportID: 6, Age: 19, Gender: "Female", BirthDate: "2004-10-03", Height: 155, Image: "sari.jpg"},
+		{Name: "Bambang Pamungkas", ProvinceID: 7, SportID: 1, Age: 32, Gender: "Male", BirthDate: "1991-12-01", Height: 182, Image: "bambang.jpg"},
+		{Name: "Taufik Hidayat", ProvinceID: 7, SportID: 4, Age: 33, Gender: "Male", BirthDate: "1990-08-16", Height: 176, Image: "taufik.jpg"},
+		{Name: "Liliyana Natsir", ProvinceID: 1, SportID: 4, Age: 31, Gender: "Female", BirthDate: "1992-05-09", Height: 162, Image: "liliyana.jpg"},
 	}
 
 	for _, athlete := range athletes {
 		db.Create(&athlete)
+	}
+
+	// Seed players events
+	playersEvents := []PlayersEvents{
+		{PlayerID: 1, PlayerType: "athlete", EventID: 1},
+		{PlayerID: 2, PlayerType: "athlete", EventID: 1},
+		{PlayerID: 3, PlayerType: "athlete", EventID: 2},
+		{PlayerID: 4, PlayerType: "athlete", EventID: 2},
+		{PlayerID: 5, PlayerType: "athlete", EventID: 3},
+		{PlayerID: 6, PlayerType: "athlete", EventID: 3},
+		{PlayerID: 7, PlayerType: "athlete", EventID: 4},
+		{PlayerID: 8, PlayerType: "athlete", EventID: 4},
+		{PlayerID: 9, PlayerType: "athlete", EventID: 1},
+		{PlayerID: 10, PlayerType: "athlete", EventID: 2},
+	}
+
+	for _, playerEvent := range playersEvents {
+		db.Create(&playerEvent)
 	}
 
 	log.Println("Database seeded successfully!")
