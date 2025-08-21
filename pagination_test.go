@@ -276,13 +276,13 @@ func TestDatabaseDialects(t *testing.T) {
 		WithSearchFields("name", "email")
 
 	builder.WithDialect(MySQL)
-	assert.Equal(t, "LIKE", builder.getSearchOperator())
+	assert.Equal(t, "LIKE", builder.GetSearchFields())
 
 	builder.WithDialect(PostgreSQL)
-	assert.Equal(t, "ILIKE", builder.getSearchOperator())
+	assert.Equal(t, "ILIKE", builder.GetSearchFields())
 
 	builder.WithDialect(SQLite)
-	assert.Equal(t, "LIKE", builder.getSearchOperator())
+	assert.Equal(t, "LIKE", builder.GetSearchFields())
 }
 
 func TestSQLInjectionPrevention(t *testing.T) {

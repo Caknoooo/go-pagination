@@ -9,10 +9,45 @@ import (
 
 type QueryBuilder interface {
 	ApplyFilters(query *gorm.DB) *gorm.DB
-	ApplySearch(query *gorm.DB, searchTerm string) *gorm.DB
 	GetTableName() string
 	GetDefaultSort() string
 	GetSearchFields() []string
+}
+
+// applyAutoSearch applies search automatically based on provided search fields
+func applyAutoSearch(query *gorm.DB, searchTerm string, searchFields []string, dialect DatabaseDialect) *gorm.DB {
+	if len(searchFields) == 0 || searchTerm == "" {
+		return query
+	}
+
+	searchPattern := "%" + searchTerm + "%"
+	operator := getSearchOperator(dialect)
+
+	if len(searchFields) == 1 {
+		return query.Where(searchFields[0]+" "+operator+" ?", searchPattern)
+	}
+
+	conditions := make([]string, len(searchFields))
+	args := make([]interface{}, len(searchFields))
+
+	for i, field := range searchFields {
+		conditions[i] = field + " " + operator + " ?"
+		args[i] = searchPattern
+	}
+
+	whereClause := "(" + strings.Join(conditions, " OR ") + ")"
+	return query.Where(whereClause, args...)
+}
+
+func getSearchOperator(dialect DatabaseDialect) string {
+	switch dialect {
+	case PostgreSQL:
+		return "ILIKE"
+	case MySQL, SQLite, SQLServer:
+		return "LIKE"
+	default:
+		return "LIKE"
+	}
 }
 
 // DatabaseDialect represents different database types for compatibility
@@ -57,10 +92,6 @@ func PaginatedQueryWithOptions[T any](
 	countQuery := db.Table(builder.GetTableName())
 	countQuery = builder.ApplyFilters(countQuery)
 
-	if pagination.Search != "" {
-		countQuery = builder.ApplySearch(countQuery, pagination.Search)
-	}
-
 	// Apply soft delete handling if enabled
 	if options.EnableSoftDelete {
 		countQuery = countQuery.Where("deleted_at IS NULL")
@@ -82,7 +113,7 @@ func PaginatedQueryWithOptions[T any](
 	dataQuery = builder.ApplyFilters(dataQuery)
 
 	if pagination.Search != "" {
-		dataQuery = builder.ApplySearch(dataQuery, pagination.Search)
+		dataQuery = applyAutoSearch(dataQuery, pagination.Search, builder.GetSearchFields(), options.Dialect)
 	}
 
 	// Apply soft delete handling if enabled
@@ -164,39 +195,8 @@ func (s *SimpleQueryBuilder) ApplyFilters(query *gorm.DB) *gorm.DB {
 	return query
 }
 
-func (s *SimpleQueryBuilder) ApplySearch(query *gorm.DB, searchTerm string) *gorm.DB {
-	if len(s.SearchFields) == 0 || searchTerm == "" {
-		return query
-	}
-
-	searchPattern := "%" + searchTerm + "%"
-	operator := s.getSearchOperator()
-
-	if len(s.SearchFields) == 1 {
-		return query.Where(s.SearchFields[0]+" "+operator+" ?", searchPattern)
-	}
-
-	conditions := make([]string, len(s.SearchFields))
-	args := make([]interface{}, len(s.SearchFields))
-
-	for i, field := range s.SearchFields {
-		conditions[i] = field + " " + operator + " ?"
-		args[i] = searchPattern
-	}
-
-	whereClause := "(" + strings.Join(conditions, " OR ") + ")"
-	return query.Where(whereClause, args...)
-}
-
-func (s *SimpleQueryBuilder) getSearchOperator() string {
-	switch s.Dialect {
-	case PostgreSQL:
-		return "ILIKE"
-	case MySQL, SQLite, SQLServer:
-		return "LIKE"
-	default:
-		return "LIKE"
-	}
+func (s *SimpleQueryBuilder) GetSearchFields() []string {
+	return s.SearchFields
 }
 
 func (s *SimpleQueryBuilder) GetTableName() string {
@@ -208,10 +208,6 @@ func (s *SimpleQueryBuilder) GetDefaultSort() string {
 		return "id asc"
 	}
 	return s.DefaultSort
-}
-
-func (s *SimpleQueryBuilder) GetSearchFields() []string {
-	return s.SearchFields
 }
 
 // NewSimpleQueryBuilder creates a new SimpleQueryBuilder with default settings

@@ -1,9 +1,82 @@
 package pagination
 
 import (
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
+
+// PaginateWithCustomFilter provides pagination using custom filter that implements Filterable interface
+func PaginateWithCustomFilter[T any](
+	db *gorm.DB,
+	ctx *gin.Context,
+	filter Filterable,
+) ([]T, PaginationResponse, error) {
+	// Bind pagination from context
+	if baseFilter, ok := filter.(interface{ BindPagination(*gin.Context) }); ok {
+		baseFilter.BindPagination(ctx)
+	}
+
+	// Bind custom filter parameters
+	if err := ctx.ShouldBindQuery(filter); err != nil {
+		return nil, PaginationResponse{}, err
+	}
+
+	data, total, err := PaginatedQuery[T](db, filter, filter.GetPagination(), filter.GetIncludes())
+	if err != nil {
+		return nil, PaginationResponse{}, err
+	}
+
+	paginationResponse := CalculatePagination(filter.GetPagination(), total)
+	return data, paginationResponse, nil
+}
+
+// PaginatedAPIResponseWithCustomFilter creates a complete API response using custom filter
+func PaginatedAPIResponseWithCustomFilter[T any](
+	db *gorm.DB,
+	ctx *gin.Context,
+	filter Filterable,
+	message string,
+) PaginatedResponse {
+	data, paginationResponse, err := PaginateWithCustomFilter[T](db, ctx, filter)
+
+	if err != nil {
+		return NewPaginatedResponse(500, "Internal Server Error: "+err.Error(), nil, PaginationResponse{})
+	}
+
+	return NewPaginatedResponse(200, message, data, paginationResponse)
+}
+
+// CreateSearchableFilter creates a default search implementation for custom filters
+func CreateSearchableFilter(searchFields []string, dialect DatabaseDialect) func(*gorm.DB, string) *gorm.DB {
+	return func(query *gorm.DB, searchTerm string) *gorm.DB {
+		if len(searchFields) == 0 || searchTerm == "" {
+			return query
+		}
+
+		searchPattern := "%" + searchTerm + "%"
+		operator := "LIKE"
+		if dialect == PostgreSQL {
+			operator = "ILIKE"
+		}
+
+		if len(searchFields) == 1 {
+			return query.Where(searchFields[0]+" "+operator+" ?", searchPattern)
+		}
+
+		conditions := make([]string, len(searchFields))
+		args := make([]interface{}, len(searchFields))
+
+		for i, field := range searchFields {
+			conditions[i] = field + " " + operator + " ?"
+			args[i] = searchPattern
+		}
+
+		whereClause := "(" + strings.Join(conditions, " OR ") + ")"
+		return query.Where(whereClause, args...)
+	}
+}
 
 // PaginateModel provides a simple way to paginate any GORM model
 func PaginateModel[T any](

@@ -230,24 +230,3 @@ func (d *DynamicFilter) GetDefaultSort() string {
 	}
 	return d.DefaultSort
 }
-
-func (d *DynamicFilter) ApplySearch(query *gorm.DB, searchTerm string) *gorm.DB {
-	if len(d.SearchFields) == 0 || searchTerm == "" {
-		return query
-	}
-
-	searchPattern := "%" + searchTerm + "%"
-
-	// Build OR conditions for search
-	conditions := make([]string, len(d.SearchFields))
-	args := make([]interface{}, len(d.SearchFields))
-
-	for i, field := range d.SearchFields {
-		// Use LIKE for better database compatibility
-		conditions[i] = field + " LIKE ?"
-		args[i] = searchPattern
-	}
-
-	whereClause := "(" + strings.Join(conditions, " OR ") + ")"
-	return query.Where(whereClause, args...)
-}
