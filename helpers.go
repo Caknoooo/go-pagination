@@ -5,8 +5,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// Helper functions for common pagination scenarios
-
 // PaginateModel provides a simple way to paginate any GORM model
 func PaginateModel[T any](
 	db *gorm.DB,

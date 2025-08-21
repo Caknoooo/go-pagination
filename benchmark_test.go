@@ -12,7 +12,6 @@ func setupBenchmarkDB(recordCount int) *gorm.DB {
 	db, _ := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	db.AutoMigrate(&TestUser{})
 
-	// Insert test data in batches for better performance
 	batchSize := 1000
 	for i := 0; i < recordCount; i += batchSize {
 		var users []TestUser

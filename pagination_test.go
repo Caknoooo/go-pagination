@@ -23,7 +23,6 @@ func setupTestDB() *gorm.DB {
 	db, _ := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	db.AutoMigrate(&TestUser{})
 
-	// Seed test data
 	users := []TestUser{
 		{Name: "John Doe", Email: "john@example.com", Age: 25},
 		{Name: "Jane Smith", Email: "jane@example.com", Age: 30},
@@ -169,7 +168,6 @@ func TestSimpleQueryBuilder(t *testing.T) {
 	// SQLite LIKE is case-sensitive, so searching for "john" won't match "John"
 	// Let's search for "John" instead or check for case-insensitive results
 	if total == 0 {
-		// Try with correct case
 		pagination.Search = "John"
 		users, total, err = PaginatedQuery[TestUser](db, builder, pagination, []string{})
 		assert.NoError(t, err)
@@ -178,7 +176,6 @@ func TestSimpleQueryBuilder(t *testing.T) {
 	assert.True(t, total >= 0)
 	if total > 0 {
 		assert.True(t, len(users) >= 1)
-		// Check if any user contains "John" or "john"
 		found := false
 		for _, user := range users {
 			if strings.Contains(strings.ToLower(user.Name), "john") {
@@ -197,7 +194,6 @@ func TestChainableQueryBuilder(t *testing.T) {
 		WithSearchFields("name", "email").
 		WithDefaultSort("age desc")
 
-	// Add filter for users older than 30
 	builder.WithFilters(func(query *gorm.DB) *gorm.DB {
 		return query.Where("age > ?", 30)
 	})
@@ -207,7 +203,7 @@ func TestChainableQueryBuilder(t *testing.T) {
 	users, total, err := PaginatedQuery[TestUser](db, builder, pagination, []string{})
 
 	assert.NoError(t, err)
-	assert.Equal(t, int64(2), total) // Bob (35) and Charlie (32)
+	assert.Equal(t, int64(2), total)
 	assert.Len(t, users, 2)
 }
 
@@ -279,35 +275,28 @@ func TestDatabaseDialects(t *testing.T) {
 	builder := NewSimpleQueryBuilder("test_users").
 		WithSearchFields("name", "email")
 
-	// Test MySQL dialect (default)
 	builder.WithDialect(MySQL)
 	assert.Equal(t, "LIKE", builder.getSearchOperator())
 
-	// Test PostgreSQL dialect
 	builder.WithDialect(PostgreSQL)
 	assert.Equal(t, "ILIKE", builder.getSearchOperator())
 
-	// Test SQLite dialect
 	builder.WithDialect(SQLite)
 	assert.Equal(t, "LIKE", builder.getSearchOperator())
 }
 
 func TestSQLInjectionPrevention(t *testing.T) {
-	// Test valid field name
 	assert.True(t, isValidSortField("name"))
 	assert.True(t, isValidSortField("user.name"))
 	assert.True(t, isValidSortField("created_at"))
 
-	// Test invalid field names (potential SQL injection)
 	assert.False(t, isValidSortField("name; DROP TABLE users;"))
 	assert.False(t, isValidSortField("name' OR '1'='1"))
 	assert.False(t, isValidSortField(""))
 
-	// Test valid include
 	assert.True(t, isValidInclude("Posts"))
 	assert.True(t, isValidInclude("User.Profile"))
 
-	// Test invalid includes
 	assert.False(t, isValidInclude("Posts; DROP TABLE"))
 	assert.False(t, isValidInclude(""))
 }
