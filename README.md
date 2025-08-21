@@ -1,28 +1,28 @@
-# Go Pagination
+# Go Pagination 🚀
 
-A powerful, flexible, and easy-to-use pagination library for Go with GORM integration. This library provides multiple approaches to implement pagination in your Go applications with built-in support for searching, sorting, filtering, and multiple database dialects.
+Library pagination yang **dinamis, fleksibel, dan mudah digunakan** untuk Go dengan integrasi GORM. Library ini menyediakan berbagai pendekatan untuk mengimplementasikan pagination dalam aplikasi Go Anda dengan dukungan built-in untuk pencarian, sorting, filtering, dan berbagai database.
 
-## Features
+## ✨ Fitur Utama
 
-- 🚀 **Generic Support**: Full support for Go generics
-- 🔍 **Advanced Search**: Built-in search functionality across multiple fields
-- 🗂️ **Flexible Filtering**: Dynamic filtering with multiple operators
-- 🔗 **Relationship Support**: Easy preloading of related data
-- 🛢️ **Multi-Database**: Support for MySQL, PostgreSQL, SQLite, and SQL Server
-- 🛡️ **SQL Injection Protection**: Built-in validation to prevent SQL injection
-- ⚡ **Performance Optimized**: Efficient count and data queries
-- 🧪 **Well Tested**: Comprehensive test coverage
-- 📚 **Multiple APIs**: Simple helpers to advanced builders
+- 🚀 **Generic Support**: Dukungan penuh untuk Go generics
+- 🔍 **Smart Search**: Pencarian otomatis berdasarkan field yang ditentukan
+- 🗂️ **Dynamic Filtering**: Filter dinamis dengan berbagai operator
+- 🔗 **Relationship Support**: Preloading relasi dengan mudah
+- 🛢️ **Multi-Database**: Support MySQL, PostgreSQL, SQLite, dan SQL Server
+- 🛡️ **SQL Injection Protection**: Validasi built-in untuk mencegah SQL injection
+- ⚡ **Performance Optimized**: Query count dan data yang efisien
+- 🧪 **Well Tested**: Test coverage yang komprehensif
+- 📚 **Multiple Patterns**: Dari simple helper sampai advanced builder
 
-## Installation
+## 📦 Installation
 
 ```bash
 go get github.com/Caknoooo/go-pagination
 ```
 
-## Quick Start
+## 🚀 Quick Start
 
-### Basic Usage with Gin
+### 1. Simple API Response (Paling Mudah!)
 
 ```go
 package main
@@ -34,371 +34,357 @@ import (
 )
 
 type User struct {
-    ID    uint   `json:"id"`
+    ID    uint   `json:"id" gorm:"primaryKey"`
     Name  string `json:"name"`
     Email string `json:"email"`
 }
 
 func GetUsers(db *gorm.DB) gin.HandlerFunc {
     return func(c *gin.Context) {
+        // Satu baris untuk pagination dengan search!
         response := pagination.PaginatedAPIResponse[User](
             db, c, "users", 
-            []string{"name", "email"}, // search fields
+            []string{"name", "email"}, // field yang bisa di-search
             "Users retrieved successfully",
         )
         c.JSON(response.Code, response)
     }
 }
-```
 
-### URL Query Parameters
-
-The library automatically handles these query parameters:
-
-- `page`: Page number (default: 1)
-- `per_page`: Items per page (default: 10, max: 100)
-- `search`: Search term to filter results
-- `sort`: Field to sort by
-- `order`: Sort order (`asc` or `desc`, default: `asc`)
-- `includes`: Comma-separated list of relations to preload
-
-Example request:
-```
-GET /users?page=2&per_page=20&search=john&sort=created_at&order=desc&includes=Posts,Profile
-```
-
-## API Reference
-
-### 1. Simple Helper Functions
-
-#### PaginatedAPIResponse
-The easiest way to implement pagination:
-
-```go
-func GetUsers(c *gin.Context) {
-    response := pagination.PaginatedAPIResponse[User](
-        db, c, "users", 
-        []string{"name", "email"}, // search fields
-        "Users retrieved successfully",
-    )
-    c.JSON(response.Code, response)
+func main() {
+    r := gin.Default()
+    r.GET("/users", GetUsers(db))
+    r.Run(":8080")
 }
 ```
 
-#### PaginateModel
-For more control over the response:
+**URL Examples:**
+- `GET /users?page=1&limit=10` - Basic pagination
+- `GET /users?search=john&page=1&limit=10` - Search di name & email
+- `GET /users?sort=name,desc&page=1&limit=10` - Sort by name descending
 
-```go
-func GetUsers(c *gin.Context) {
-    users, paginationInfo, err := pagination.PaginateModel[User](
-        db, c, "users", []string{"name", "email"},
-    )
-    if err != nil {
-        c.JSON(500, gin.H{"error": err.Error()})
-        return
-    }
-    
-    c.JSON(200, gin.H{
-        "data": users,
-        "pagination": paginationInfo,
-    })
-}
-```
-
-### 2. Advanced Query Builder
-
-#### SimpleQueryBuilder
-For custom filtering and more control:
-
-```go
-func GetActiveUsers(c *gin.Context) {
-    paginationRequest := pagination.BindPagination(c)
-    
-    builder := pagination.NewSimpleQueryBuilder("users").
-        WithSearchFields("name", "email").
-        WithDefaultSort("created_at desc").
-        WithDialect(pagination.MySQL).
-        WithFilters(func(query *gorm.DB) *gorm.DB {
-            return query.Where("active = ?", true)
-        })
-    
-    users, total, err := pagination.PaginatedQuery[User](
-        db, builder, paginationRequest, []string{},
-    )
-    
-    if err != nil {
-        c.JSON(500, gin.H{"error": err.Error()})
-        return
-    }
-    
-    paginationResponse := pagination.CalculatePagination(paginationRequest, total)
-    response := pagination.NewPaginatedResponse(200, "Success", users, paginationResponse)
-    
-    c.JSON(200, response)
-}
-```
-
-#### ChainableQueryBuilder
-For complex queries with joins:
-
-```go
-func GetPostsWithUsers(c *gin.Context) {
-    paginationRequest := pagination.BindPagination(c)
-    
-    builder := pagination.NewChainableQueryBuilder("posts").
-        Join("LEFT JOIN users ON posts.user_id = users.id").
-        Select("posts.*", "users.name as user_name").
-        WithSearchFields("posts.title", "posts.body", "users.name").
-        WithDefaultSort("posts.created_at desc")
-    
-    posts, total, err := pagination.PaginatedQuery[Post](
-        db, builder, paginationRequest, []string{"User"},
-    )
-    
-    // Handle response...
-}
-```
-
-### 3. Dynamic Filtering
-
-#### DynamicFilter
-For advanced filtering based on struct fields:
+### 2. Custom Filter Pattern (Lebih Fleksibel!)
 
 ```go
 type UserFilter struct {
-    pagination.DynamicFilter
-    MinAge int    `json:"min_age" form:"min_age"`
-    MaxAge int    `json:"max_age" form:"max_age"`
-    Status string `json:"status" form:"status"`
+    pagination.BaseFilter
+    ID       int    `json:"id" form:"id"`
+    Name     string `json:"name" form:"name"`
+    Email    string `json:"email" form:"email"`
+    IsActive *bool  `json:"is_active" form:"is_active"`
 }
 
-func (u *UserFilter) ApplyFilters(query *gorm.DB) *gorm.DB {
-    // Apply base dynamic filters
-    query = u.DynamicFilter.ApplyFilters(query)
-    
-    // Apply custom filters
-    if u.MinAge > 0 {
-        query = query.Where("age >= ?", u.MinAge)
+// Implementasi filter custom
+func (f *UserFilter) ApplyFilters(query *gorm.DB) *gorm.DB {
+    if f.ID > 0 {
+        query = query.Where("id = ?", f.ID)
     }
-    if u.MaxAge > 0 {
-        query = query.Where("age <= ?", u.MaxAge)
+    if f.Name != "" {
+        query = query.Where("name LIKE ?", "%"+f.Name+"%")
     }
-    if u.Status != "" {
-        query = query.Where("status = ?", u.Status)
+    if f.Email != "" {
+        query = query.Where("email LIKE ?", "%"+f.Email+"%")
     }
-    
+    if f.IsActive != nil {
+        query = query.Where("is_active = ?", *f.IsActive)
+    }
     return query
 }
 
-func GetUsersWithFilter(c *gin.Context) {
-    filter := &UserFilter{
-        DynamicFilter: pagination.DynamicFilter{
-            TableName:    "users",
-            Model:        User{},
-            SearchFields: []string{"name", "email"},
-            DefaultSort:  "id desc",
-        },
+// Tentukan field yang bisa di-search (DINAMIS!)
+func (f *UserFilter) GetSearchFields() []string {
+    return []string{"name", "email", "phone"}
+}
+
+func (f *UserFilter) GetTableName() string {
+    return "users"
+}
+
+func (f *UserFilter) GetDefaultSort() string {
+    return "id asc"
+}
+
+// Penggunaan di handler
+func GetUsersWithFilter(db *gorm.DB) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        var filter UserFilter
+        if err := pagination.BindPagination(c, &filter); err != nil {
+            c.JSON(400, gin.H{"error": err.Error()})
+            return
+        }
+
+        result, err := pagination.PaginatedQuery(db, &filter, &[]User{})
+        if err != nil {
+            c.JSON(500, gin.H{"error": err.Error()})
+            return
+        }
+
+        c.JSON(200, result)
     }
-    
-    // Bind all parameters
-    filter.BindPagination(c)
-    c.ShouldBindQuery(filter)
-    
-    users, total, err := pagination.PaginatedQuery[User](
-        db, filter, filter.GetPagination(), filter.GetIncludes(),
-    )
-    
-    // Handle response...
 }
 ```
 
-### 4. Database Dialect Support
-
-The library supports multiple database dialects:
+### 3. Advanced Pattern dengan Relationships
 
 ```go
-builder := pagination.NewSimpleQueryBuilder("users").
-    WithDialect(pagination.PostgreSQL) // Uses ILIKE for case-insensitive search
+type UserWithProfile struct {
+    ID      uint    `json:"id"`
+    Name    string  `json:"name"`
+    Email   string  `json:"email"`
+    Profile Profile `json:"profile" gorm:"foreignKey:UserID"`
+}
 
-// Available dialects:
-// pagination.MySQL      - Uses LIKE
-// pagination.PostgreSQL - Uses ILIKE  
-// pagination.SQLite     - Uses LIKE
-// pagination.SQLServer  - Uses LIKE
+type Profile struct {
+    ID     uint   `json:"id"`
+    UserID uint   `json:"user_id"`
+    Bio    string `json:"bio"`
+    Avatar string `json:"avatar"`
+}
+
+type UserProfileFilter struct {
+    pagination.BaseFilter
+    Name string `json:"name" form:"name"`
+    Bio  string `json:"bio" form:"bio"`
+}
+
+func (f *UserProfileFilter) ApplyFilters(query *gorm.DB) *gorm.DB {
+    if f.Name != "" {
+        query = query.Where("users.name LIKE ?", "%"+f.Name+"%")
+    }
+    if f.Bio != "" {
+        query = query.Joins("JOIN profiles ON profiles.user_id = users.id").
+               Where("profiles.bio LIKE ?", "%"+f.Bio+"%")
+    }
+    return query
+}
+
+func (f *UserProfileFilter) GetSearchFields() []string {
+    return []string{"users.name", "users.email", "profiles.bio"}
+}
+
+func (f *UserProfileFilter) GetTableName() string {
+    return "users"
+}
+
+func (f *UserProfileFilter) GetDefaultSort() string {
+    return "users.id asc"
+}
+
+// Handler dengan preload
+func GetUsersWithProfiles(db *gorm.DB) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        var filter UserProfileFilter
+        filter.Includes = []string{"Profile"} // Auto preload!
+        
+        if err := pagination.BindPagination(c, &filter); err != nil {
+            c.JSON(400, gin.H{"error": err.Error()})
+            return
+        }
+
+        result, err := pagination.PaginatedQuery(db, &filter, &[]UserWithProfile{})
+        if err != nil {
+            c.JSON(500, gin.H{"error": err.Error()})
+            return
+        }
+
+        c.JSON(200, result)
+    }
+}
 ```
 
-### 5. Advanced Options
+## 🔍 Search Features
 
-#### PaginatedQueryWithOptions
-For more control over query execution:
+### Automatic Search dengan GetSearchFields
+
+Yang membuat library ini **sangat dinamis** adalah kemampuan `GetSearchFields()`:
 
 ```go
-users, total, err := pagination.PaginatedQueryWithOptions[User](
-    db, builder, paginationRequest, []string{},
-    pagination.PaginatedQueryOptions{
-        Dialect:          pagination.PostgreSQL,
-        EnableSoftDelete: true, // Automatically filter soft-deleted records
-        CustomCountQuery: "SELECT COUNT(*) FROM users WHERE active = true",
-    },
-)
+func (f *ProductFilter) GetSearchFields() []string {
+    // Search akan otomatis bekerja di semua field ini!
+    return []string{"name", "description", "brand", "category"}
+}
 ```
 
-## Filter Operators
+Ketika user melakukan request:
+- `GET /products?search=laptop` 
+- Otomatis akan mencari di: `name LIKE '%laptop%' OR description LIKE '%laptop%' OR brand LIKE '%laptop%' OR category LIKE '%laptop%'`
 
-When using DynamicFilter, you can use these operators:
+### Database Compatibility
 
-- `=`, `EQ`, `EQUALS`: Equal to
-- `!=`, `NE`, `NOT_EQUALS`: Not equal to  
-- `>`, `GT`, `GREATER_THAN`: Greater than
-- `>=`, `GTE`, `GREATER_THAN_EQUALS`: Greater than or equal
-- `<`, `LT`, `LESS_THAN`: Less than
-- `<=`, `LTE`, `LESS_THAN_EQUALS`: Less than or equal
-- `LIKE`, `CONTAINS`: Contains (case-sensitive)
-- `ILIKE`, `ICONTAINS`: Contains (case-insensitive)
-- `IN`: In list
-- `NOT_IN`: Not in list
-- `IS_NULL`: Is null
-- `IS_NOT_NULL`: Is not null
+Search otomatis menyesuaikan dengan database:
+- **MySQL/SQLite**: Menggunakan `LIKE`
+- **PostgreSQL**: Menggunakan `ILIKE` (case-insensitive)
 
-## Response Format
-
-All paginated responses follow this structure:
+## 📊 Response Format
 
 ```json
 {
   "code": 200,
-  "status": "success",
   "message": "Data retrieved successfully",
   "data": [...],
   "pagination": {
     "page": 1,
-    "per_page": 10,
-    "max_page": 5,
-    "total": 50
+    "limit": 10,
+    "total_records": 150,
+    "total_pages": 15,
+    "has_next": true,
+    "has_prev": false
   }
 }
 ```
 
-## Security
+## 🎯 URL Parameters
 
-The library includes built-in protection against SQL injection:
+| Parameter | Description | Example |
+|-----------|-------------|---------|
+| `page` | Halaman (default: 1) | `page=2` |
+| `limit` | Jumlah per halaman (default: 10) | `limit=25` |
+| `search` | Pencarian global | `search=john` |
+| `sort` | Sorting | `sort=name,desc` |
+| `include` | Preload relations | `include=profile,posts` |
+| Custom Fields | Filter spesifik | `name=john&active=true` |
 
-- Field names are validated using regex patterns
-- Sort fields are sanitized
-- Include fields are validated
-- Filter operators are whitelisted
+## 🔧 Configuration Options
 
-## Testing
-
-Run the tests:
-
-```bash
-go test ./...
-```
-
-The library includes comprehensive tests covering:
-- Pagination logic
-- Query building
-- SQL injection prevention
-- Database dialect support
-- Error handling
-
-## Performance Tips
-
-1. **Use appropriate indexes**: Make sure your database has indexes on fields used for sorting and filtering
-2. **Limit per_page**: The library limits per_page to 100 by default
-3. **Use SelectFields**: When using ChainableQueryBuilder, select only needed fields
-4. **Optimize count queries**: For large datasets, consider using CustomCountQuery with optimized counting logic
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Examples
-
-Check the [examples](examples/) directory for complete working examples including:
-
-- Basic pagination with Gin
-- Advanced filtering
-- Multiple database support
-- Custom query builders
-- Error handling
-
-## Changelog
-
-### v1.0.0
-- Initial release
-- Generic type support
-- Multiple database dialects
-- Advanced filtering
-- SQL injection protection
-- Comprehensive test coverage
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
-	if err != nil {
-		log.Fatal("Failed to connect to database: ", err)
-	}
-
-	// Migrate User model to database
-	if err := db.AutoMigrate(&User{}); err != nil {
-		log.Fatal("Failed to migrate database: ", err)
-	}
-
-	// Seed initial users data
-	seedUsers(db)
-
-	// Setup Gin router
-	r := gin.Default()
-
-	// Define GET route for paginated users
-	r.GET("/users", func(c *gin.Context) {
-		// Initialize pagination
-		p, err := pagination.New(db, c)
-		if err != nil {
-			log.Fatal("Error creating pagination: ", err)
-		}
-
-		var users []User
-		// Query paginated data
-		if err := p.Query().Find(&users).Error; err != nil {
-			log.Fatal("Error querying database: ", err)
-		}
-
-		// Count total items for pagination metadata
-		if err := p.Count(&User{}); err != nil {
-			log.Fatal("Error counting items: ", err)
-		}
-
-		// Generate and return paginated response
-		response := p.GenerateResponse(c)
-		c.JSON(http.StatusOK, gin.H{
-			"data":  users,
-			"meta":  response.Meta,
-			"links": response.Links,
-		})
-	})
-
-	// Run the server
-	if err := r.Run(":8081"); err != nil {
-		log.Fatal("Failed to start server: ", err)
-	}
+```go
+options := pagination.PaginatedQueryOptions{
+    Dialect:           pagination.MySQL,
+    EnableSoftDelete:  true,
+    MaxLimit:         100,
+    DefaultLimit:     10,
 }
 
-// Seed dummy users data
-func seedUsers(db *gorm.DB) {
-	for i := 1; i <= 50; i++ {
-		user := User{
-			Name:  fmt.Sprintf("User %d", i),
-			Email: fmt.Sprintf("user%d@example.com", i),
-		}
-		db.Create(&user)
-	}
+result, err := pagination.PaginatedQueryWithOptions(db, filter, &users, options)
+```
+
+## 🏆 Best Practices
+
+### 1. Gunakan Custom Filter untuk Logic Kompleks
+
+```go
+type ProductFilter struct {
+    pagination.BaseFilter
+    CategoryID  int     `json:"category_id" form:"category_id"`
+    MinPrice    float64 `json:"min_price" form:"min_price"`
+    MaxPrice    float64 `json:"max_price" form:"max_price"`
+    IsActive    *bool   `json:"is_active" form:"is_active"`
+}
+
+func (f *ProductFilter) ApplyFilters(query *gorm.DB) *gorm.DB {
+    if f.CategoryID > 0 {
+        query = query.Where("category_id = ?", f.CategoryID)
+    }
+    if f.MinPrice > 0 {
+        query = query.Where("price >= ?", f.MinPrice)
+    }
+    if f.MaxPrice > 0 {
+        query = query.Where("price <= ?", f.MaxPrice)
+    }
+    if f.IsActive != nil {
+        query = query.Where("is_active = ?", *f.IsActive)
+    }
+    return query
+}
+
+func (f *ProductFilter) GetSearchFields() []string {
+    return []string{"name", "description", "sku", "brand"}
 }
 ```
+
+### 2. Optimal Search Fields
+
+```go
+// ✅ Good - Specific searchable fields
+func (f *UserFilter) GetSearchFields() []string {
+    return []string{"name", "email", "username"}
+}
+
+// ❌ Avoid - Too many fields can impact performance
+func (f *UserFilter) GetSearchFields() []string {
+    return []string{"name", "email", "phone", "address", "bio", "notes", "description"}
+}
+```
+
+### 3. Handle Relationships Efficiently
+
+```go
+type OrderFilter struct {
+    pagination.BaseFilter
+    CustomerName string `json:"customer_name" form:"customer_name"`
+    Status       string `json:"status" form:"status"`
+}
+
+func (f *OrderFilter) ApplyFilters(query *gorm.DB) *gorm.DB {
+    if f.CustomerName != "" {
+        // Join only when needed
+        query = query.Joins("JOIN customers ON customers.id = orders.customer_id").
+               Where("customers.name LIKE ?", "%"+f.CustomerName+"%")
+    }
+    if f.Status != "" {
+        query = query.Where("orders.status = ?", f.Status)
+    }
+    return query
+}
+
+func (f *OrderFilter) GetSearchFields() []string {
+    return []string{"orders.invoice_number", "customers.name", "customers.email"}
+}
+```
+
+## 📈 Performance Tips
+
+1. **Index Database Fields**: Pastikan field yang sering di-search ter-index
+2. **Limit Search Fields**: Jangan terlalu banyak field di `GetSearchFields()`
+3. **Use Specific Filters**: Gunakan filter spesifik daripada hanya search
+4. **Pagination Limits**: Set reasonable max limits
+
+## 🧪 Testing
+
+```go
+func TestPagination(t *testing.T) {
+    db := setupTestDB()
+    
+    filter := &UserFilter{
+        BaseFilter: pagination.BaseFilter{
+            Pagination: pagination.PaginationRequest{
+                Page:   1,
+                Limit:  10,
+                Search: "john",
+            },
+        },
+    }
+    
+    result, err := pagination.PaginatedQuery(db, filter, &[]User{})
+    assert.NoError(t, err)
+    assert.Equal(t, 1, result.Pagination.Page)
+    assert.True(t, len(result.Data.([]User)) <= 10)
+}
+```
+
+## 📚 Examples Repository
+
+Lihat folder `examples/` untuk implementasi lengkap:
+
+- **AthleteFilter**: Filter dengan relasi Province dan Sport
+- **ProvinceFilter**: Filter sederhana dengan name dan code
+- **SportFilter**: Filter dengan category dan description
+- **EventFilter**: Filter dengan date range dan sport relation
+
+## 🤝 Contributing
+
+1. Fork repository
+2. Create feature branch
+3. Add tests for new features
+4. Submit pull request
+
+## 📄 License
+
+MIT License
+
+---
+
+**Go Pagination** - Making pagination **dinamis serta mudah digunakan**! 🚀
+}
+```
+
+#### PaginateModel
