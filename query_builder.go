@@ -309,6 +309,11 @@ func (s *SimpleQueryBuilder) WithFilters(filterFunc func(*gorm.DB) *gorm.DB) *Si
 	return s
 }
 
+// GetSearchOperator returns the search operator based on the current dialect
+func (s *SimpleQueryBuilder) GetSearchOperator() string {
+	return getSearchOperator(s.Dialect)
+}
+
 // ChainableQueryBuilder allows for method chaining to build complex queries
 type ChainableQueryBuilder struct {
 	*SimpleQueryBuilder

@@ -78,16 +78,16 @@ func main() {
 **Try these URLs:**
 ```bash
 # Basic pagination
-curl "http://localhost:8080/users?page=1&limit=10"
+curl "http://localhost:8080/users?page=1&per_page=10"
 
 # Search in name and email fields
-curl "http://localhost:8080/users?search=john&page=1&limit=10"
+curl "http://localhost:8080/users?search=john&page=1&per_page=10"
 
 # Sort by name descending
-curl "http://localhost:8080/users?sort=name,desc&page=1&limit=10"
+curl "http://localhost:8080/users?sort=name,desc&page=1&per_page=10"
 
 # Combined: search + sort + pagination
-curl "http://localhost:8080/users?search=admin&sort=id,desc&page=2&limit=5"
+curl "http://localhost:8080/users?search=admin&sort=id,desc&page=2&per_page=5"
 ```
 
 ## 🔧 Basic Usage
@@ -117,7 +117,7 @@ func GetUsersBasic(db *gorm.DB) gin.HandlerFunc {
         query.Count(&total)
 
         // Apply pagination
-        query.Offset(pagination.GetOffset()).Limit(pagination.GetLimit()).Find(&users)
+        query.Offset(pagination.GetOffset()).per_page(pagination.Getper_page()).Find(&users)
 
         paginationResponse := pagination.CalculatePagination(pagination, total)
         response := pagination.NewPaginatedResponse(200, "Success", users, paginationResponse)
@@ -160,7 +160,7 @@ func GetUsersCustom(db *gorm.DB) gin.HandlerFunc {
         }
 
         query.Count(&total)
-        query.Offset(filter.GetOffset()).Limit(filter.GetLimit()).Find(&users)
+        query.Offset(filter.GetOffset()).per_page(filter.Getper_page()).Find(&users)
 
         paginationResponse := pagination.CalculatePagination(filter.PaginationRequest, total)
         
@@ -182,10 +182,10 @@ func GetUsersCustom(db *gorm.DB) gin.HandlerFunc {
 **Usage examples:**
 ```bash
 # Filter by status and role
-curl "http://localhost:8080/users?status=active&role=admin&page=1&limit=10"
+curl "http://localhost:8080/users?status=active&role=admin&page=1&per_page=10"
 
 # Combine filters with search
-curl "http://localhost:8080/users?status=active&search=john&page=1&limit=10"
+curl "http://localhost:8080/users?status=active&search=john&page=1&per_page=10"
 ```
 
 ## 🗂️ Advanced Filtering
@@ -273,7 +273,7 @@ func GetUsersWithFilter(db *gorm.DB) gin.HandlerFunc {
 curl "http://localhost:8080/users?id=123"
 
 # Filter by name pattern
-curl "http://localhost:8080/users?name=john&page=1&limit=10"
+curl "http://localhost:8080/users?name=john&page=1&per_page=10"
 
 # Filter by role and status
 curl "http://localhost:8080/users?role=admin&is_active=true"
@@ -394,22 +394,22 @@ func GetUsersWithRelations(db *gorm.DB) gin.HandlerFunc {
 **Relationship loading examples:**
 ```bash
 # Basic pagination without relationships
-curl "http://localhost:8080/users?page=1&limit=10"
+curl "http://localhost:8080/users?page=1&per_page=10"
 
 # Load user profiles
-curl "http://localhost:8080/users?includes=Profile&page=1&limit=10"
+curl "http://localhost:8080/users?includes=Profile&page=1&per_page=10"
 
 # Load multiple relationships
-curl "http://localhost:8080/users?includes=Profile,Posts&page=1&limit=10"
+curl "http://localhost:8080/users?includes=Profile,Posts&page=1&per_page=10"
 
 # Load all allowed relationships
-curl "http://localhost:8080/users?includes=Profile,Posts,Orders&page=1&limit=10"
+curl "http://localhost:8080/users?includes=Profile,Posts,Orders&page=1&per_page=10"
 
 # Combine with search and filters
-curl "http://localhost:8080/users?includes=Profile,Posts&search=john&status=active&page=1&limit=10"
+curl "http://localhost:8080/users?includes=Profile,Posts&search=john&status=active&page=1&per_page=10"
 
 # Try loading unauthorized relationship (will be ignored)
-curl "http://localhost:8080/users?includes=Profile,Secrets&page=1&limit=10"
+curl "http://localhost:8080/users?includes=Profile,Secrets&page=1&per_page=10"
 # Only Profile will be loaded, Secrets will be ignored for security
 ```
 
@@ -463,7 +463,7 @@ curl "http://localhost:8080/users/advanced?includes=Profile.Address,Posts.Commen
 curl "http://localhost:8080/users/advanced?includes=Profile.Address&city_name=Jakarta&search=developer"
 
 # Multiple nested relationships
-curl "http://localhost:8080/users/advanced?includes=Profile.Address,Posts.Comments,Posts.Tags&page=1&limit=5"
+curl "http://localhost:8080/users/advanced?includes=Profile.Address,Posts.Comments,Posts.Tags&page=1&per_page=5"
 ```
 ## 🔍 Search Functionality
 
@@ -520,7 +520,7 @@ curl "http://localhost:8080/products?search=laptop"
 curl "http://localhost:8080/products?search=gaming&category_id=1&min_price=500"
 
 # Search with pagination and sorting
-curl "http://localhost:8080/products?search=macbook&sort=price,asc&page=1&limit=10"
+curl "http://localhost:8080/products?search=macbook&sort=price,asc&page=1&per_page=10"
 ```
 
 ### Database-Specific Search Optimization
@@ -593,7 +593,7 @@ curl "http://localhost:8080/users?sort=name,desc"
 curl "http://localhost:8080/users?sort=role,asc&sort=name,desc"
 
 # Sort with pagination
-curl "http://localhost:8080/users?sort=created_at,desc&page=1&limit=20"
+curl "http://localhost:8080/users?sort=created_at,desc&page=1&per_page=20"
 ```
 
 
@@ -720,8 +720,7 @@ func (f *ValidatedFilter) ApplyFilters(query *gorm.DB) *gorm.DB {
 | Parameter | Type | Description | Example | Default |
 |-----------|------|-------------|---------|---------|
 | `page` | int | Page number | `page=2` | 1 |
-| `limit` | int | Items per page | `limit=25` | 10 |
-| `per_page` | int | Alias for limit | `per_page=25` | 10 |
+| `per_page` | int | Alias for per_page | `per_page=25` | 10 |
 | `search` | string | Global search term | `search=john` | "" |
 | `sort` | string | Sort field | `sort=name` | "" |
 | `order` | string | Sort direction | `order=desc` | "asc" |
@@ -747,25 +746,25 @@ func (f *ValidatedFilter) ApplyFilters(query *gorm.DB) *gorm.DB {
 
 ```bash
 # Basic pagination
-GET /api/users?page=1&limit=10
+GET /api/users?page=1&per_page=10
 
 # Search with pagination
-GET /api/users?search=developer&page=2&limit=5
+GET /api/users?search=developer&page=2&per_page=5
 
 # Filter with specific fields
-GET /api/users?role=admin&status=active&page=1&limit=20
+GET /api/users?role=admin&status=active&page=1&per_page=20
 
 # Sort with relationships
-GET /api/users?includes=profile,posts&sort=name,asc&page=1&limit=15
+GET /api/users?includes=profile,posts&sort=name,asc&page=1&per_page=15
 
 # Complex combined query
-GET /api/users?search=john&role=user&status=active&includes=profile&sort=created_at,desc&page=1&limit=10
+GET /api/users?search=john&role=user&status=active&includes=profile&sort=created_at,desc&page=1&per_page=10
 
 # Date range filtering (custom implementation)
-GET /api/users?created_after=2023-01-01&created_before=2023-12-31&page=1&limit=10
+GET /api/users?created_after=2023-01-01&created_before=2023-12-31&page=1&per_page=10
 
 # Numeric range filtering
-GET /api/products?min_price=100&max_price=500&category_id=1&page=1&limit=10
+GET /api/products?min_price=100&max_price=500&category_id=1&page=1&per_page=10
 ```
 
 ## � Response Format
@@ -834,10 +833,10 @@ The example server provides these endpoints:
 **Test the examples:**
 ```bash
 # Basic athlete pagination
-curl "http://localhost:8080/athletes?page=1&limit=5"
+curl "http://localhost:8080/athletes?page=1&per_page=5"
 
 # Athletes with relationships
-curl "http://localhost:8080/athletes?includes=Province,Sport&page=1&limit=5"
+curl "http://localhost:8080/athletes?includes=Province,Sport&page=1&per_page=5"
 
 # Search athletes by name
 curl "http://localhost:8080/athletes?search=john&includes=Province"
@@ -846,7 +845,7 @@ curl "http://localhost:8080/athletes?search=john&includes=Province"
 curl "http://localhost:8080/athletes?province_id=1&sport_id=2&includes=Province,Sport"
 
 # Provinces with their athletes
-curl "http://localhost:8080/provinces/with-athletes?includes=Athletes&page=1&limit=10"
+curl "http://localhost:8080/provinces/with-athletes?includes=Athletes&page=1&per_page=10"
 ```
 
 ## 🏆 Best Practices
