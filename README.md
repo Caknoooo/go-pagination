@@ -463,78 +463,12 @@ func (f *OrderFilter) GetSearchFields() []string {
 }
 ```
 
-### 2. Optimal Search Fields
-
-```go
-// ✅ Good - Specific searchable fields
-func (f *UserFilter) GetSearchFields() []string {
-    return []string{"name", "email", "username"}
-}
-
-// ❌ Avoid - Too many fields can impact performance
-func (f *UserFilter) GetSearchFields() []string {
-    return []string{"name", "email", "phone", "address", "bio", "notes", "description"}
-}
-```
-
-### 3. Handle Relationships Efficiently
-
-```go
-type OrderFilter struct {
-    pagination.BaseFilter
-    CustomerName string `json:"customer_name" form:"customer_name"`
-    Status       string `json:"status" form:"status"`
-}
-
-func (f *OrderFilter) ApplyFilters(query *gorm.DB) *gorm.DB {
-    if f.CustomerName != "" {
-        // Join only when needed
-        query = query.Joins("JOIN customers ON customers.id = orders.customer_id").
-               Where("customers.name LIKE ?", "%"+f.CustomerName+"%")
-    }
-    if f.Status != "" {
-        query = query.Where("orders.status = ?", f.Status)
-    }
-    return query
-}
-
-func (f *OrderFilter) GetSearchFields() []string {
-    return []string{"orders.invoice_number", "customers.name", "customers.email"}
-}
-```
-
-
 ## 📈 Performance Tips
 
 1. **Index Database Fields**: Ensure frequently searched fields are indexed
 2. **Limit Search Fields**: Don't include too many fields in `GetSearchFields()`
 3. **Use Specific Filters**: Use specific filters instead of just search
 4. **Pagination Limits**: Set reasonable max limits
-
-## 🧪 Testing
-
-```go
-func TestUserPagination(t *testing.T) {
-    // Setup test database
-    db := setupTestDB()
-    
-    filter := &UserFilter{
-        BaseFilter: pagination.BaseFilter{
-            Pagination: pagination.PaginationRequest{
-                Page:    1,
-                PerPage: 10,
-            },
-        },
-        Name: "John",
-    }
-    
-    users, total, err := pagination.PaginatedQuery[User](db, filter)
-    
-    assert.NoError(t, err)
-    assert.Equal(t, int64(5), total)
-    assert.Len(t, users, 5)
-}
-```
 
 ## 📚 Complete Examples
 
