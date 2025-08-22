@@ -340,11 +340,9 @@ Automatic search adapts to database:
   "data": [...],
   "pagination": {
     "page": 1,
-    "limit": 10,
-    "total_records": 150,
-    "total_pages": 15,
-    "has_next": true,
-    "has_prev": false
+    "per_page": 10,
+    "max_page": 150,
+    "total": 15,
   }
 }
 ```
