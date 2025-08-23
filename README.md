@@ -614,7 +614,7 @@ func (f *ValidatedFilter) ApplyFilters(query *gorm.DB) *gorm.DB {
 }
 ```
 
-## � URL Parameters Reference
+## URL Parameters Reference
 
 ### Core Parameters
 
@@ -668,7 +668,7 @@ GET /api/users?created_after=2023-01-01&created_before=2023-12-31&page=1&per_pag
 GET /api/products?min_price=100&max_price=500&category_id=1&page=1&per_page=10
 ```
 
-## � Response Format
+## Response Format
 
 ### Standard Response Structure
 
