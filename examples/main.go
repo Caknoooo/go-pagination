@@ -266,7 +266,7 @@ func seedData(db *gorm.DB) {
 			StartDate:   time.Date(2024, 10, 15, 0, 0, 0, 0, time.UTC),
 			EndDate:     time.Date(2024, 10, 30, 0, 0, 0, 0, time.UTC),
 			Location:    "Papua",
-			SportID:     1, // Sepak Bola
+			SportID:     1,
 		},
 		{
 			Name:        "SEA Games 2023",
@@ -274,7 +274,7 @@ func seedData(db *gorm.DB) {
 			StartDate:   time.Date(2023, 5, 12, 0, 0, 0, 0, time.UTC),
 			EndDate:     time.Date(2023, 5, 23, 0, 0, 0, 0, time.UTC),
 			Location:    "Cambodia",
-			SportID:     2, // Basket
+			SportID:     2,
 		},
 		{
 			Name:        "Asian Games 2022",
@@ -282,7 +282,7 @@ func seedData(db *gorm.DB) {
 			StartDate:   time.Date(2022, 9, 10, 0, 0, 0, 0, time.UTC),
 			EndDate:     time.Date(2022, 9, 25, 0, 0, 0, 0, time.UTC),
 			Location:    "Hangzhou",
-			SportID:     3, // Voli
+			SportID:     3,
 		},
 		{
 			Name:        "Pekan Olahraga Daerah 2024",
@@ -297,7 +297,6 @@ func seedData(db *gorm.DB) {
 		db.Create(&event)
 	}
 
-	// Seed athletes
 	athletes := []Athlete{
 		{Name: "Budi Santoso", ProvinceID: 1, SportID: 1, Age: 25, Gender: "Male", BirthDate: "1998-01-15", Height: 175, Image: "budi.jpg"},
 		{Name: "Siti Nurhaliza", ProvinceID: 1, SportID: 2, Age: 23, Gender: "Female", BirthDate: "2000-05-20", Height: 165, Image: "siti.jpg"},
@@ -320,7 +319,6 @@ func seedData(db *gorm.DB) {
 		db.Create(&athlete)
 	}
 
-	// Seed players events
 	playersEvents := []PlayersEvents{
 		{PlayerID: 1, PlayerType: "athlete", EventID: 1},
 		{PlayerID: 2, PlayerType: "athlete", EventID: 1},
