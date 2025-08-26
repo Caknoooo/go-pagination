@@ -5,16 +5,6 @@ import (
 	"gorm.io/gorm"
 )
 
-type SportQuery struct {
-	db *gorm.DB
-}
-
-func NewSportQuery(db *gorm.DB) *SportQuery {
-	return &SportQuery{
-		db: db,
-	}
-}
-
 type Sport struct {
 	ID          uint      `json:"id" gorm:"primaryKey"`
 	Name        string    `json:"name" gorm:"column:name"`
