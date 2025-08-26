@@ -5,6 +5,16 @@ import (
 	"gorm.io/gorm"
 )
 
+type AthleteQuery struct {
+	db *gorm.DB
+}
+
+func NewAthleteQuery(db *gorm.DB) *AthleteQuery {
+	return &AthleteQuery{
+		db: db,
+	}
+}
+
 type Athlete struct {
 	ID            int             `json:"id"`
 	ProvinceID    int             `json:"province_id"`
