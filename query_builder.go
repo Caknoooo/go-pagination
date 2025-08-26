@@ -25,6 +25,17 @@ type AllowedIncludesProvider interface {
 	GetAllowedIncludes() map[string]bool
 }
 
+// DatabaseProvider interface for query builders that need database access
+type DatabaseProvider interface {
+	GetDB() *gorm.DB
+}
+
+// QueryLayerBuilder interface that combines query building with database access
+type QueryLayerBuilder interface {
+	IncludableQueryBuilder
+	DatabaseProvider
+}
+
 // applyAutoSearch applies search automatically based on provided search fields
 func applyAutoSearch(query *gorm.DB, searchTerm string, searchFields []string, dialect DatabaseDialect) *gorm.DB {
 	if len(searchFields) == 0 || searchTerm == "" {
@@ -94,6 +105,15 @@ func PaginatedQueryWithIncludable[T any](
 	db *gorm.DB,
 	builder IncludableQueryBuilder,
 ) ([]T, int64, error) {
+	// If db is nil, try to get it from the builder (for query layer pattern)
+	if db == nil {
+		if dbProvider, ok := builder.(DatabaseProvider); ok {
+			db = dbProvider.GetDB()
+		} else {
+			return nil, 0, fmt.Errorf("database connection not provided")
+		}
+	}
+
 	// Validate the builder
 	builder.Validate()
 

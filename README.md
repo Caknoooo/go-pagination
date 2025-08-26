@@ -91,11 +91,33 @@ curl "http://localhost:8080/users?search=admin&sort=id,desc&page=2&per_page=5"
 
 ## 🗂️ Advanced Filtering
 
-### Custom Filter Pattern with Validation
+Use this constructor in every implemented builder.
+```go
+type XQuery struct {
+  db *gorm.DB
+}
 
+func NewXQuery(db *gorm.DB) *XQuery {
+  return &XQuery{
+    db: db,
+  }
+}
+```
+
+### Custom Filter Pattern with Validation
 Create powerful, reusable filters with automatic validation:
 
 ```go
+type UserQuery struct {
+  db *gorm.DB
+}
+
+func NewUserQuery(db *gorm.DB) *UserQuery {
+  return &UserQuery{
+    db: db,
+  }
+}
+
 type UserFilter struct {
     pagination.BaseFilter
     ID       int    `json:"id" form:"id"`
@@ -190,6 +212,16 @@ curl "http://localhost:8080/users?role=user&is_active=true&min_age=25&search=dev
 ### Basic Relationship Loading with Security
 
 ```go
+type UserQuery struct {
+  db *gorm.DB
+}
+
+func NewUserQuery(db *gorm.DB) *UserQuery {
+  return &UserQuery{
+    db: db,
+  }
+}
+
 type User struct {
     ID      uint    `json:"id" gorm:"primaryKey"`
     Name    string  `json:"name"`

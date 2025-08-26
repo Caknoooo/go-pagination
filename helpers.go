@@ -197,3 +197,65 @@ func PaginatedAPIResponseWithIncludes[T any](
 
 	return NewPaginatedResponse(200, message, data, paginationResponse)
 }
+
+// PaginatedQueryWithQueryLayer provides pagination using query layer pattern
+// This function separates the database logic from the handler
+func PaginatedQueryWithQueryLayer[T any](
+	filter IncludableQueryBuilder,
+	queryFunc func(IncludableQueryBuilder) ([]T, int64, error),
+) ([]T, int64, error) {
+	// Validate includes before processing
+	if validator, ok := filter.(interface{ Validate() }); ok {
+		validator.Validate()
+	}
+
+	// Execute query through query layer
+	return queryFunc(filter)
+}
+
+// PaginatedAPIResponseWithQueryLayer creates a complete API response using query layer pattern
+func PaginatedAPIResponseWithQueryLayer[T any](
+	ctx *gin.Context,
+	filter IncludableQueryBuilder,
+	message string,
+	queryFunc func(IncludableQueryBuilder) ([]T, int64, error),
+) PaginatedResponse {
+	// Bind pagination from context
+	if baseFilter, ok := filter.(interface{ BindPagination(*gin.Context) }); ok {
+		baseFilter.BindPagination(ctx)
+	}
+
+	// Bind custom filter parameters
+	if err := ctx.ShouldBindQuery(filter); err != nil {
+		return NewPaginatedResponse(400, "Invalid query parameters: "+err.Error(), nil, PaginationResponse{})
+	}
+
+	// Execute query through query layer
+	data, total, err := PaginatedQueryWithQueryLayer(filter, queryFunc)
+	if err != nil {
+		return NewPaginatedResponse(500, "Internal Server Error: "+err.Error(), nil, PaginationResponse{})
+	}
+
+	paginationResponse := CalculatePagination(filter.GetPagination(), total)
+	return NewPaginatedResponse(200, message, data, paginationResponse)
+}
+
+// BindAndValidateFilter binds pagination and query parameters, then validates the filter
+func BindAndValidateFilter(ctx *gin.Context, filter IncludableQueryBuilder) error {
+	// Bind pagination from context
+	if baseFilter, ok := filter.(interface{ BindPagination(*gin.Context) }); ok {
+		baseFilter.BindPagination(ctx)
+	}
+
+	// Bind custom filter parameters
+	if err := ctx.ShouldBindQuery(filter); err != nil {
+		return err
+	}
+
+	// Validate includes
+	if validator, ok := filter.(interface{ Validate() }); ok {
+		validator.Validate()
+	}
+
+	return nil
+}

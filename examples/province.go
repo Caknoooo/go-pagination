@@ -5,6 +5,16 @@ import (
 	"gorm.io/gorm"
 )
 
+type ProvinceQuery struct {
+	db *gorm.DB
+}
+
+func NewProvinceQuery(db *gorm.DB) *ProvinceQuery {
+	return &ProvinceQuery{
+		db: db,
+	}
+}
+
 type Province struct {
 	ID       uint      `json:"id" gorm:"primaryKey"`
 	Name     string    `json:"name" gorm:"column:name"`

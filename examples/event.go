@@ -7,6 +7,16 @@ import (
 	"gorm.io/gorm"
 )
 
+type EventQuery struct {
+	db *gorm.DB
+}
+
+func NewEventQuery(db *gorm.DB) *EventQuery {
+	return &EventQuery{
+		db: db,
+	}
+}
+
 type Event struct {
 	ID          uint      `json:"id" gorm:"primaryKey"`
 	Name        string    `json:"name" gorm:"column:name"`
