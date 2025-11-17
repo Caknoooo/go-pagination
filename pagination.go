@@ -3,23 +3,26 @@ package pagination
 import (
 	"math"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
 type PaginationRequest struct {
-	Page    int    `json:"page" form:"page"`
-	PerPage int    `json:"per_page" form:"per_page"`
-	Search  string `json:"search" form:"search"`
-	Sort    string `json:"sort" form:"sort"`
-	Order   string `json:"order" form:"order"`
+	Page       int    `json:"page" form:"page"`
+	PerPage    int    `json:"per_page" form:"per_page"`
+	Search     string `json:"search" form:"search"`
+	Sort       string `json:"sort" form:"sort"`
+	Order      string `json:"order" form:"order"`
+	IsDisabled bool   `json:"is_disabled,omitempty" form:"is_disabled"`
 }
 
 type PaginationResponse struct {
-	Page    int   `json:"page"`
-	PerPage int   `json:"per_page"`
-	MaxPage int64 `json:"max_page"`
-	Total   int64 `json:"total"`
+	Page       int   `json:"page"`
+	PerPage    int   `json:"per_page"`
+	MaxPage    int64 `json:"max_page"`
+	Total      int64 `json:"total"`
+	IsDisabled bool  `json:"is_disabled,omitempty"`
 }
 
 type PaginatedResponse struct {
@@ -64,11 +67,12 @@ func (p *PaginationRequest) Validate() {
 
 func BindPagination(ctx *gin.Context) PaginationRequest {
 	pagination := PaginationRequest{
-		Page:    1,
-		PerPage: 10,
-		Search:  "",
-		Sort:    "",
-		Order:   "asc",
+		Page:       1,
+		PerPage:    10,
+		Search:     "",
+		Sort:       "",
+		Order:      "asc",
+		IsDisabled: false,
 	}
 
 	if pageStr := ctx.Query("page"); pageStr != "" {
@@ -91,11 +95,31 @@ func BindPagination(ctx *gin.Context) PaginationRequest {
 		pagination.Order = order
 	}
 
+	if isDisabled := ctx.Query("is_disabled"); isDisabled != "" {
+		switch strings.ToLower(isDisabled) {
+		case "1", "true", "yes", "y", "on":
+			pagination.IsDisabled = true
+		default:
+			pagination.IsDisabled = false
+		}
+	}
+
 	pagination.Validate()
 	return pagination
 }
 
 func CalculatePagination(pagination PaginationRequest, totalCount int64) PaginationResponse {
+	// When pagination disabled, return minimal metadata
+	if pagination.IsDisabled {
+		return PaginationResponse{
+			Page:       1,
+			PerPage:    int(totalCount),
+			MaxPage:    1,
+			Total:      totalCount,
+			IsDisabled: true,
+		}
+	}
+
 	maxPage := int64(math.Ceil(float64(totalCount) / float64(pagination.PerPage)))
 
 	if maxPage == 0 {
@@ -103,10 +127,11 @@ func CalculatePagination(pagination PaginationRequest, totalCount int64) Paginat
 	}
 
 	return PaginationResponse{
-		Page:    pagination.Page,
-		PerPage: pagination.PerPage,
-		MaxPage: maxPage,
-		Total:   totalCount,
+		Page:       pagination.Page,
+		PerPage:    pagination.PerPage,
+		MaxPage:    maxPage,
+		Total:      totalCount,
+		IsDisabled: false,
 	}
 }
 
