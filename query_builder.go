@@ -198,8 +198,10 @@ func PaginatedQueryWithOptions[T any](
 		dataQuery = dataQuery.Order(builder.GetDefaultSort())
 	}
 
-	// Apply pagination
-	dataQuery = dataQuery.Offset(pagination.GetOffset()).Limit(pagination.GetLimit())
+	// Apply pagination unless disabled
+	if !pagination.IsDisabled {
+		dataQuery = dataQuery.Offset(pagination.GetOffset()).Limit(pagination.GetLimit())
+	}
 
 	// Validate and apply preloads
 	validatedIncludes := validateIncludes(builder, includes)
