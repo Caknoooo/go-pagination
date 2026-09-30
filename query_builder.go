@@ -72,6 +72,22 @@ func getSearchOperator(dialect DatabaseDialect) string {
 	}
 }
 
+func detectDialect(db *gorm.DB) DatabaseDialect {
+	if db == nil {
+		return MySQL
+	}
+	switch db.Dialector.Name() {
+	case "postgres":
+		return PostgreSQL
+	case "sqlite":
+		return SQLite
+	case "sqlserver":
+		return SQLServer
+	default:
+		return MySQL
+	}
+}
+
 // DatabaseDialect represents different database types for compatibility
 type DatabaseDialect string
 
@@ -96,7 +112,7 @@ func PaginatedQuery[T any](
 	includes []string,
 ) ([]T, int64, error) {
 	return PaginatedQueryWithOptions[T](db, builder, pagination, includes, PaginatedQueryOptions{
-		Dialect: MySQL, // Default to MySQL for backward compatibility
+		Dialect: detectDialect(db),
 	})
 }
 
@@ -122,7 +138,7 @@ func PaginatedQueryWithIncludable[T any](
 	includes := builder.GetIncludes()
 
 	return PaginatedQueryWithOptions[T](db, builder, pagination, includes, PaginatedQueryOptions{
-		Dialect: MySQL, // Default to MySQL for backward compatibility
+		Dialect: detectDialect(db),
 	})
 }
 
